@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -160,7 +160,7 @@ function setView(view) {
     resetAutoAdvance();
     startCommentPolling();
   }
-  if (view === 'board') loadBoard();
+  if (view === 'board') { loadBoard(); refreshLandingBadges(); }
   if (view === 'myMessages') loadMyMessages();
   if (view === 'info') {
     loadInfoPreferences();

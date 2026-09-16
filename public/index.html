@@ -79,21 +79,9 @@
       </div>
 
       <a id="adminMaskEditorLink" href="/mask-editor.html" target="_blank" rel="noopener"
-         class="panel-note hidden" style="display:block; text-align:center; text-decoration:underline; cursor:pointer; margin-bottom:16px;">
+         class="panel-note hidden" style="display:block; text-align:center; text-decoration:underline; cursor:pointer; margin:16px 0 24px;">
         🔧 Masken-Editor öffnen (Admin)
       </a>
-
-      <div class="nav-card hidden" id="myMessagesNavCard" style="position:relative;" onclick="setView('myMessages')">
-        <span class="nav-card-emoji">✉️</span>
-        <div>
-          <div class="nav-card-title">Meine Nachrichten</div>
-          <div class="nav-card-sub">Antworten auf deine Beiträge</div>
-        </div>
-        <span id="myMessagesBadge" class="badge hidden">0</span>
-      </div>
-      <p class="panel-note hidden" id="showMyMessagesLink" style="cursor:pointer; text-decoration:underline;" onclick="forceShowMyMessages()">
-        Ordner "Meine Nachrichten" nicht da? Trotzdem anzeigen
-      </p>
 
       <div class="panel">
         <h3 id="infoGreeting">Hallo!</h3>
@@ -200,6 +188,18 @@
         <button id="boardPostBtn" class="btn btn-primary">Veröffentlichen</button>
       </div>
       <div id="boardList"></div>
+
+      <div class="nav-card hidden" id="myMessagesNavCard" style="position:relative; margin-top:20px;" onclick="setView('myMessages')">
+        <span class="nav-card-emoji">✉️</span>
+        <div>
+          <div class="nav-card-title">Meine Nachrichten</div>
+          <div class="nav-card-sub">Antworten auf deine Beiträge</div>
+        </div>
+        <span id="myMessagesBadge" class="badge hidden">0</span>
+      </div>
+      <p class="panel-note hidden" id="showMyMessagesLink" style="cursor:pointer; text-decoration:underline;" onclick="forceShowMyMessages()">
+        Ordner "Meine Nachrichten" nicht da? Trotzdem anzeigen
+      </p>
     </div>
   </div>
 
