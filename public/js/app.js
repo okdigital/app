@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.8.0';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -168,6 +168,7 @@ function setView(view) {
   document.getElementById('logoutBtn').classList.toggle('hidden', view === 'auth');
   document.getElementById('homeBtn').classList.toggle('hidden', view === 'auth' || view === 'profile' || view === 'info');
   document.getElementById('shutterBtn').classList.toggle('hidden', view !== 'feed');
+  document.getElementById('commentFabBtn').classList.toggle('hidden', view !== 'feed');
 
   if (view !== 'feed') {
     stopAutoAdvance();
@@ -474,9 +475,6 @@ function updatePhotoCardLive(screen, data) {
       if (emojiEl) emojiEl.style.fontSize = (26 + Math.min(data.reaction_counts.heart * 3, 20)) + 'px';
     }
   });
-
-  const input = screen.querySelector('.inline-comment-form input');
-  if (document.activeElement === input) return; // nicht mitten im Tippen stören
 
   const existingList = screen.querySelector('.comment-list-inline, .comment-empty-inline');
   const html = data.comments.length
@@ -859,10 +857,6 @@ function buildPhotoCard(p) {
 
       <div class="bottom-panel">
         ${commentsHtml}
-        <div class="inline-comment-form">
-          <input type="text" placeholder="Kommentar schreiben..." id="cmt-${p.id}">
-          <button class="btn-send" onclick="addComment(${p.id})">➤</button>
-        </div>
       </div>
     </section>
   `;
@@ -895,16 +889,49 @@ async function react(photoId, key) {
   } catch (e) { showMsg(e.message, 'error'); }
 }
 
-async function addComment(photoId) {
-  const input = document.getElementById('cmt-' + photoId);
-  const text = input.value.trim();
+async function addComment(photoId, text) {
   if (!text) return;
   try {
     await api('/comment.php', { photo_id: photoId, text }, true);
-    input.value = '';
     loadFeed();
   } catch (e) { showMsg(e.message, 'error'); }
 }
+
+// -- Kommentar-Dialog (ersetzt das kleine Eingabefeld direkt am Foto) ------
+// Auf Android führte die feste Eingabezeile am unteren Bildschirmrand in
+// Kombination mit der aufklappenden Tastatur regelmäßig zu einem verzerrten
+// Layout. Ein zentrierter Dialog (wie beim Foto-Senden) ist zuverlässiger.
+let commentTargetPhotoId = null;
+
+function getVisiblePhotoId() {
+  const feedEl = document.getElementById('feed');
+  const screens = feedEl.querySelectorAll('.photo-screen');
+  if (!screens.length) return null;
+  const perScreen = feedEl.clientHeight;
+  const index = Math.min(Math.round(feedEl.scrollTop / perScreen), screens.length - 1);
+  return screens[index]?.dataset.photoId || null;
+}
+
+document.getElementById('commentFabBtn').onclick = () => {
+  commentTargetPhotoId = getVisiblePhotoId();
+  if (!commentTargetPhotoId) return;
+  document.getElementById('commentOverlayInput').value = '';
+  document.getElementById('commentOverlay').classList.remove('hidden');
+  document.getElementById('commentOverlayInput').focus();
+};
+
+document.getElementById('commentOverlayCancelBtn').onclick = () => {
+  document.getElementById('commentOverlay').classList.add('hidden');
+  commentTargetPhotoId = null;
+};
+
+document.getElementById('commentOverlaySendBtn').onclick = async () => {
+  const text = document.getElementById('commentOverlayInput').value.trim();
+  if (!text || !commentTargetPhotoId) return;
+  await addComment(commentTargetPhotoId, text);
+  document.getElementById('commentOverlay').classList.add('hidden');
+  commentTargetPhotoId = null;
+};
 
 updateView();
 
