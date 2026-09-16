@@ -20,8 +20,10 @@
   .layout { display: flex; flex-direction: column; gap: 16px; max-width: 480px; margin: 0 auto; }
 
   .camera-box {
-    position: relative; width: 100%; aspect-ratio: 3/4; background: #000;
-    border-radius: 12px; overflow: hidden;
+    position: sticky; top: 0; z-index: 10;
+    width: 100%; aspect-ratio: 3/4; background: #000;
+    border-radius: 0 0 12px 12px; overflow: hidden;
+    margin: 0 0 16px;
   }
   .camera-box video { visibility: hidden; }
   .camera-box video, .camera-box canvas {
@@ -114,15 +116,24 @@
   </div>
 
   <div class="panel">
-    <h3>Code für ar-camera.js</h3>
-    <button class="btn btn-primary" id="copyBtn">📋 Code kopieren</button>
+    <h3>Speichern</h3>
+    <button class="btn btn-primary" id="saveBtn">💾 Direkt speichern (live, kein Deploy nötig)</button>
     <button class="btn btn-quiet" id="switchCameraBtn">🔄 Kamera wechseln</button>
+    <p class="hint" id="saveHint">
+      Speichert sofort in <code>public/masks/config.json</code> auf dem Server — wirkt beim
+      nächsten Öffnen der Kamera in der echten App, ganz ohne Deploy. Erfordert Admin-Rechte
+      und dass du in diesem Browser bereits in der App eingeloggt bist.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3>Alternativ: Code für eine ganz neue Maske</h3>
+    <button class="btn btn-quiet" id="copyBtn">📋 Config-Eintrag kopieren</button>
     <div class="code-out" id="codeOut"></div>
     <p class="hint">
-      Diesen Block in die <code>drawMask()</code>-Funktion in <code>js/ar-camera.js</code> einfügen
-      (bei einer neuen Maske als zusätzlicher <code>else if</code>-Zweig, bei einer bestehenden die
-      alte Zeile für diesen Typ ersetzen). Ein neues Bild zusätzlich unter <code>public/masks/</code>
-      ablegen und einen Button im Masken-Picker in <code>index.html</code> ergänzen.
+      Nur nötig, wenn du eine neue Maske dauerhaft ins Repo aufnehmen willst: Bilddatei nach
+      <code>public/masks/</code> legen, diesen Eintrag manuell in <code>public/masks/config.json</code>
+      einfügen, und einen Button im Masken-Picker in <code>index.html</code> ergänzen.
     </p>
   </div>
 </div>
@@ -164,10 +175,24 @@ function updateOuts() {
 }
 Object.values(controls).forEach(el => el.addEventListener('input', updateOuts));
 
-function loadMask(name) {
+async function loadMask(name) {
   currentName = name;
   currentImage = new Image();
   currentImage.src = '/masks/' + name + '.png';
+
+  // Vorhandene Position aus config.json übernehmen, falls schon eine da ist
+  try {
+    const res = await fetch('/masks/config.json?t=' + Date.now());
+    const config = await res.json();
+    if (config[name]) {
+      controls.anchorX.value = config[name].anchorX;
+      controls.anchorY.value = config[name].anchorY;
+      controls.offsetX.value = config[name].offsetX;
+      controls.offsetY.value = config[name].offsetY;
+      controls.widthFactor.value = config[name].width;
+      updateOuts();
+    }
+  } catch (e) { /* keine Konfiguration gefunden, Regler bleiben wie sie sind */ }
 }
 document.getElementById('maskSelect').addEventListener('change', (e) => loadMask(e.target.value));
 loadMask('santa');
@@ -180,17 +205,48 @@ document.getElementById('customFile').addEventListener('change', (e) => {
   currentImage.src = URL.createObjectURL(file);
 });
 
+document.getElementById('saveBtn').onclick = async () => {
+  const token = localStorage.getItem('wa_token');
+  const hint = document.getElementById('saveHint');
+  if (!token) {
+    hint.textContent = 'Kein Login gefunden — öffne die echte App in diesem Browser, melde dich als Admin an, und komm dann hierher zurück.';
+    hint.style.color = 'var(--pink-deep)';
+    return;
+  }
+  try {
+    const res = await fetch('/save-mask-config.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        name: currentName,
+        anchorX: parseFloat(controls.anchorX.value),
+        anchorY: parseFloat(controls.anchorY.value),
+        offsetX: parseFloat(controls.offsetX.value),
+        offsetY: parseFloat(controls.offsetY.value),
+        width: parseFloat(controls.widthFactor.value),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unbekannter Fehler');
+    hint.textContent = '✓ Gespeichert! Wirkt sofort beim nächsten Kamera-Start in der App.';
+    hint.style.color = 'var(--pink)';
+  } catch (e) {
+    hint.textContent = 'Fehler beim Speichern: ' + e.message;
+    hint.style.color = 'var(--pink-deep)';
+  }
+};
+
 function updateCode() {
   const a = controls;
-  const sign = parseFloat(a.offsetY.value) < 0 ? '-' : '+';
-  const absVal = Math.abs(parseFloat(a.offsetY.value)).toFixed(2);
-  const xSign = parseFloat(a.offsetX.value) < 0 ? '-' : '+';
-  const xAbs = Math.abs(parseFloat(a.offsetX.value)).toFixed(2);
-  const cxExpr = parseFloat(a.offsetX.value) === 0
-    ? 'cx'
-    : `cx ${xSign} box.w * ${xAbs}`;
-  const code = `} else if (type === '${currentName}') {\n  drawImageAnchored(maskImages.${currentName}, ${parseFloat(a.anchorX.value).toFixed(2)}, ${parseFloat(a.anchorY.value).toFixed(2)}, ${cxExpr}, box.y ${sign} box.h * ${absVal}, box.w * ${parseFloat(a.widthFactor.value).toFixed(2)});`;
-  document.getElementById('codeOut').textContent = code;
+  const entry = {
+    anchorX: parseFloat(a.anchorX.value),
+    anchorY: parseFloat(a.anchorY.value),
+    offsetX: parseFloat(a.offsetX.value),
+    offsetY: parseFloat(a.offsetY.value),
+    width: parseFloat(a.widthFactor.value),
+  };
+  document.getElementById('codeOut').textContent =
+    `"${currentName}": ${JSON.stringify(entry)}`;
 }
 
 document.getElementById('copyBtn').onclick = () => {

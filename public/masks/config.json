@@ -1,0 +1,6 @@
+{
+  "santa":   { "anchorX": 0.5, "anchorY": 0.61, "offsetX": 0,    "offsetY": -0.22, "width": 1.3 },
+  "antlers": { "anchorX": 0.5, "anchorY": 0.97, "offsetX": 0,    "offsetY": -0.10, "width": 1.5 },
+  "glasses": { "anchorX": 0.5, "anchorY": 0.5,  "offsetX": 0,    "offsetY": 0.42,  "width": 1.35 },
+  "halo":    { "anchorX": 0.5, "anchorY": 0.5,  "offsetX": 0,    "offsetY": -0.32, "width": 1.3 }
+}

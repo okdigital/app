@@ -26,6 +26,20 @@ const maskImages = {};
   maskImages[name] = img;
 });
 
+// Position/Größe pro Maske kommt aus einer Konfigurationsdatei statt fest
+// im Code — so kann der Masken-Editor Änderungen direkt speichern, ohne
+// dass ein neuer Deploy nötig ist. Frisch laden bei jedem Kamera-Start,
+// falls zwischenzeitlich über den Editor was geändert wurde.
+let maskConfig = {};
+async function loadMaskConfig() {
+  try {
+    const res = await fetch('/masks/config.json?t=' + Date.now());
+    maskConfig = await res.json();
+  } catch (e) {
+    maskConfig = {}; // Masken erscheinen dann einfach nicht, bricht nichts ab
+  }
+}
+
 async function ensureModelLoaded() {
   if (faceLandmarker || modelLoadFailed) return;
   try {
@@ -68,7 +82,7 @@ async function openCameraView() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
-  await ensureModelLoaded();
+  await Promise.all([ensureModelLoaded(), loadMaskConfig()]);
   document.getElementById('cameraLoading').classList.add('hidden');
 
   if (!faceLandmarker) {
@@ -162,20 +176,13 @@ function drawImageAnchored(img, anchorXFrac, anchorYFrac, targetX, targetY, targ
 }
 
 function drawMask(type, box) {
-  const cx = box.x + box.w / 2;
-  if (type === 'santa') {
-    // Anker = Mitte des weißen Bunds (Fell-Rand) der Mütze im Bild
-    drawImageAnchored(maskImages.santa, 0.5, 0.61, cx, box.y - box.h * 0.22, box.w * 1.3);
-  } else if (type === 'antlers') {
-    // Anker = unteres Ende, wo die Geweihe "aus dem Kopf wachsen"
-    drawImageAnchored(maskImages.antlers, 0.5, 0.97, cx, box.y - box.h * 0.1, box.w * 1.5);
-  } else if (type === 'glasses') {
-    // Anker = Steg-Mitte zwischen den Gläsern
-    drawImageAnchored(maskImages.glasses, 0.5, 0.5, cx, box.y + box.h * 0.42, box.w * 1.35);
-  } else if (type === 'halo') {
-    // Anker = Ring-Mitte
-    drawImageAnchored(maskImages.halo, 0.5, 0.5, cx, box.y - box.h * 0.32, box.w * 1.3);
-  }
+  const cfg = maskConfig[type];
+  const img = maskImages[type];
+  if (!cfg || !img) return; // Maske ohne Eintrag in config.json -> einfach nichts zeichnen
+  const cx = box.x + box.w / 2 + cfg.offsetX * box.w;
+  const targetY = box.y + cfg.offsetY * box.h;
+  const targetWidth = box.w * cfg.width;
+  drawImageAnchored(img, cfg.anchorX, cfg.anchorY, cx, targetY, targetWidth);
 }
 
 document.querySelectorAll('.mask-btn').forEach(btn => {
