@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -805,6 +805,7 @@ function buildPhotoCard(p) {
     : '';
   return `
     <section class="photo-screen" data-photo-id="${p.id}">
+      <img class="photo-backdrop" src="${BASE}${p.view_url}" alt="" aria-hidden="true">
       <img class="photo-full" src="${BASE}${p.view_url}" alt="${p.filename}" loading="lazy">
       ${deleteBtn}
 
