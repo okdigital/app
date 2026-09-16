@@ -69,7 +69,10 @@ async function openCameraView() {
 
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode }, audio: false,
+      // "ideal" statt fixer Werte: Browser nutzt automatisch die höchste
+      // Auflösung, die die jeweilige Kamera hergibt (für Fotobuch-Druck).
+      video: { facingMode, width: { ideal: 4096 }, height: { ideal: 4096 } },
+      audio: false,
     });
   } catch (e) {
     closeCameraView();
@@ -485,7 +488,10 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
 
   let newStream;
   try {
-    newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacingMode }, audio: false });
+    newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: newFacingMode, width: { ideal: 4096 }, height: { ideal: 4096 } },
+      audio: false,
+    });
   } catch (e) {
     showMsg('Kamera konnte nicht gewechselt werden.', 'error');
     return; // alte Kamera bleibt unangetastet, nichts kaputt gemacht
@@ -516,7 +522,7 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
 document.getElementById('cameraCloseBtn').onclick = closeCameraView;
 
 document.getElementById('cameraCaptureBtn').onclick = () => {
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.97); // hohe Qualität für Fotobuch-Druck
   closeCameraView();
 
   pendingPhotoFile = { name: 'foto_' + Date.now() + '.jpg' };
