@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -125,6 +125,8 @@ async function updateView() {
       setView('profile');
     } else {
       window.myUsername = profile.username;
+      isAdmin = !!profile.is_admin;
+      document.getElementById('adminMaskEditorLink').classList.toggle('hidden', !isAdmin);
       const displayName = profile.username || 'Lieblingsmensch';
       document.getElementById('infoGreeting').textContent = `Hallo, ${displayName}!`;
       setView('info');
