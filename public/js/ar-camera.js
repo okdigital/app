@@ -71,20 +71,20 @@ async function ensureModelLoaded() {
   }
 }
 
+async function acquireCamera(mode) {
+  return navigator.mediaDevices.getUserMedia({
+    video: { facingMode: mode, width: { ideal: 3840 }, height: { ideal: 2160 } },
+    audio: false,
+  });
+}
+
 async function openCameraView() {
   document.getElementById('cameraView').classList.remove('hidden');
   document.getElementById('cameraLoading').classList.remove('hidden');
   document.getElementById('cameraLoading').textContent = 'Kamera wird vorbereitet …';
 
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      // "ideal" statt fixer Werte: Browser nutzt automatisch die höchste
-      // Auflösung, die die jeweilige Kamera hergibt (für Fotobuch-Druck).
-      // Echtes 16:9-Zielformat statt einer unrealistischen quadratischen
-      // Vorgabe, damit die Kamera eine sinnvolle native Auflösung wählt.
-      video: { facingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
-      audio: false,
-    });
+    cameraStream = await acquireCamera(facingMode);
   } catch (e) {
     closeCameraView();
     // Kein Kamera-Zugriff -> alter, zuverlässiger Weg über den Datei-Dialog
@@ -515,29 +515,36 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
   const oldFacingMode = facingMode;
   const newFacingMode = oldFacingMode === 'user' ? 'environment' : 'user';
 
-  // Alte Kamera ZUERST freigeben — viele Android-Geräte/Browser erlauben
-  // nur einen aktiven Kamera-Stream gleichzeitig. Wird die neue Kamera
-  // angefragt, während die alte noch läuft, schlägt getUserMedia dort
-  // zuverlässig fehl und der Wechsel scheint einfach nichts zu tun.
+  // Ein "fliegender" Wechsel (alte Kamera stoppen, sofort neue anfragen)
+  // bleibt v.a. auf iOS/Safari gerne schwarz hängen — die Kamera-Hardware
+  // braucht dort einen Moment, um wirklich freigegeben zu werden. Deshalb
+  // hier bewusst denselben, zuverlässigen Ablauf wie beim allerersten
+  // Öffnen: Render-Schleife stoppen, Kamera komplett freigeben, kurz
+  // warten, dann neu aufbauen — inkl. Lade-Overlay, damit es nicht wie
+  // ein Hängenbleiben aussieht.
+  document.getElementById('cameraLoading').textContent = 'Kamera wird gewechselt …';
+  document.getElementById('cameraLoading').classList.remove('hidden');
+
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
   if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
   cameraStream = null;
+  video.srcObject = null;
+
+  // Kurze Pause, damit die Kamera-Hardware (v.a. bei iOS) die alte Kamera
+  // wirklich freigegeben hat, bevor die neue Anfrage kommt.
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   let newStream;
   try {
-    newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: newFacingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
-      audio: false,
-    });
+    newStream = await acquireCamera(newFacingMode);
     facingMode = newFacingMode;
   } catch (e) {
     // Neue Kamera nicht verfügbar (z.B. Gerät hat keine zweite Kamera) —
     // alte wiederherstellen, statt den Nutzer mit schwarzem Bild
     // sitzen zu lassen.
     try {
-      newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: oldFacingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
-        audio: false,
-      });
+      newStream = await acquireCamera(oldFacingMode);
       facingMode = oldFacingMode;
     } catch (e2) {
       showMsg('Kamera konnte nicht gewechselt werden.', 'error');
@@ -564,6 +571,11 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
   }
   modelLoadFailed = false;
   await ensureModelLoaded();
+
+  document.getElementById('cameraLoading').classList.add('hidden');
+  document.querySelectorAll('.mask-btn').forEach((b) => { b.disabled = !faceLandmarker; });
+
+  renderLoop();
 };
 
 document.getElementById('cameraCloseBtn').onclick = closeCameraView;
