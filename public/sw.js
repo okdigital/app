@@ -9,7 +9,7 @@
 // CACHE_VERSION bei jedem Deploy, der Assets ändert, hochzählen
 // (analog zu APP_VERSION in app.js) — sonst bekommen Nutzer alte
 // Dateien aus dem Cache ausgeliefert.
-const CACHE_VERSION = 'wa-shell-v1';
+const CACHE_VERSION = 'wa-shell-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -74,6 +74,13 @@ self.addEventListener('fetch', (event) => {
   // im Hintergrund aktualisieren (stale-while-revalidate). So startet
   // die App auch offline sofort, bekommt aber bei bestehender Verbindung
   // immer die neueste Version nachgeladen.
+  //
+  // WICHTIG: Das Hintergrund-Update muss über event.waitUntil() laufen.
+  // Sonst darf der Browser den Service Worker beenden, sobald die
+  // gecachte Antwort ausgeliefert wurde — und killt damit oft den
+  // Cache-Update-Vorgang, BEVOR cache.put() fertig ist. Genau das
+  // führte dazu, dass ein normaler App-Neustart eine ältere Version
+  // zeigte als der "Nach Updates suchen"-Button.
   event.respondWith(
     caches.match(req).then((cached) => {
       const networkFetch = fetch(req)
@@ -85,6 +92,10 @@ self.addEventListener('fetch', (event) => {
           return res;
         })
         .catch(() => null);
+
+      // Hält den Service Worker am Leben, bis das Hintergrund-Update
+      // (inkl. cache.put) tatsächlich abgeschlossen ist.
+      event.waitUntil(networkFetch);
 
       // Für die Navigation (index.html) im Offline-Fall auf die
       // gecachte Startseite zurückfallen, auch wenn die exakte URL
