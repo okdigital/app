@@ -512,7 +512,15 @@ document.querySelectorAll('.mask-btn').forEach(btn => {
 });
 
 document.getElementById('cameraSwitchBtn').onclick = async () => {
-  const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+  const oldFacingMode = facingMode;
+  const newFacingMode = oldFacingMode === 'user' ? 'environment' : 'user';
+
+  // Alte Kamera ZUERST freigeben — viele Android-Geräte/Browser erlauben
+  // nur einen aktiven Kamera-Stream gleichzeitig. Wird die neue Kamera
+  // angefragt, während die alte noch läuft, schlägt getUserMedia dort
+  // zuverlässig fehl und der Wechsel scheint einfach nichts zu tun.
+  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+  cameraStream = null;
 
   let newStream;
   try {
@@ -520,15 +528,26 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
       video: { facingMode: newFacingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
       audio: false,
     });
+    facingMode = newFacingMode;
   } catch (e) {
+    // Neue Kamera nicht verfügbar (z.B. Gerät hat keine zweite Kamera) —
+    // alte wiederherstellen, statt den Nutzer mit schwarzem Bild
+    // sitzen zu lassen.
+    try {
+      newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: oldFacingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
+        audio: false,
+      });
+      facingMode = oldFacingMode;
+    } catch (e2) {
+      showMsg('Kamera konnte nicht gewechselt werden.', 'error');
+      closeCameraView();
+      return;
+    }
     showMsg('Kamera konnte nicht gewechselt werden.', 'error');
-    return; // alte Kamera bleibt unangetastet, nichts kaputt gemacht
   }
 
-  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
   cameraStream = newStream;
-  facingMode = newFacingMode;
-
   video.srcObject = cameraStream;
   await video.play();
   canvas.width = video.videoWidth;
