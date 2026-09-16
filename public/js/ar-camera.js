@@ -146,6 +146,12 @@ function drawFrame(allLandmarks) {
         } catch (e) { /* dieses Gesicht überspringen, die anderen bleiben erhalten */ }
       }
     }
+
+    // Banner läuft über das gesamte Bild, unabhängig von erkannten Gesichtern.
+    try {
+      if (activeMasks.has('bannerColor')) drawGraffitiBanner('color');
+      if (activeMasks.has('bannerGold')) drawGraffitiBanner('gold');
+    } catch (e) { /* Banner überspringen, Rest des Bildes bleibt erhalten */ }
   } finally {
     // Unbedingt immer ausführen — sonst bleibt eine verschobene/gespiegelte
     // Zeichenfläche für alle folgenden Frames "hängen", falls oben was schiefgeht.
@@ -198,7 +204,10 @@ function drawEffectsForFace(landmarks) {
   const faceCenter = mid(forehead, chin);
 
   if (activeMasks.has('frame')) {
-    drawGoldenFrame(faceWidth, faceHeight, angle, faceCenter.x, faceCenter.y);
+    const { w: frameW, h: frameH } = drawGoldenFrame(faceWidth, faceHeight, angle, faceCenter.x, faceCenter.y);
+    if (activeMasks.has('plaque')) {
+      drawNamePlate(angle, faceCenter.x, faceCenter.y, frameW, frameH);
+    }
   }
   if (activeMasks.has('beard')) {
     drawBeard(leftJaw, rightJaw, chin, mouthL, mouthR);
@@ -225,31 +234,132 @@ function drawEffectsForFace(landmarks) {
 // ---- Neue, direkt gezeichnete Effekte (kein PNG-Asset nötig) ----
 
 function drawGoldenFrame(faceWidth, faceHeight, angle, cx, cy) {
-  const w = faceWidth * 1.55;
-  const h = faceHeight * 1.85;
+  const w = faceWidth * 2.0;
+  const h = faceHeight * 2.3;
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(angle);
-  const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
-  grad.addColorStop(0, '#F9E28A');
-  grad.addColorStop(0.5, '#C9930C');
-  grad.addColorStop(1, '#F9E28A');
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = Math.max(6, w * 0.05);
+
+  // Breiter Aussenring
+  const gradOuter = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+  gradOuter.addColorStop(0, '#F9E28A');
+  gradOuter.addColorStop(0.5, '#C9930C');
+  gradOuter.addColorStop(1, '#F9E28A');
+  ctx.strokeStyle = gradOuter;
+  ctx.lineWidth = Math.max(14, w * 0.09);
   ctx.beginPath();
   ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.lineWidth = Math.max(2, w * 0.015);
+
+  // Kontur-Ringe innen/aussen für den "geschnitzten" Rahmen-Look
   ctx.strokeStyle = '#7A5A0B';
+  ctx.lineWidth = Math.max(3, w * 0.016);
   ctx.beginPath();
-  ctx.ellipse(0, 0, w / 2 * 1.08, h / 2 * 1.08, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, w / 2 * 1.06, h / 2 * 1.06, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.fillStyle = '#F9E28A';
-  [0, Math.PI / 2, Math.PI, Math.PI * 1.5].forEach(a => {
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w / 2 * 0.93, h / 2 * 0.93, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Umlaufendes Ornament-Muster (kleine Rauten) statt vier einzelner Punkte
+  const ornamentCount = 22;
+  for (let i = 0; i < ornamentCount; i++) {
+    const a = (i / ornamentCount) * Math.PI * 2;
+    const ox = Math.cos(a) * w / 2;
+    const oy = Math.sin(a) * h / 2;
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.fillStyle = i % 2 === 0 ? '#F9E28A' : '#7A5A0B';
+    const s = w * 0.02;
     ctx.beginPath();
-    ctx.arc(Math.cos(a) * w / 2, Math.sin(a) * h / 2, w * 0.028, 0, Math.PI * 2);
+    ctx.moveTo(0, -s);
+    ctx.lineTo(s * 0.6, 0);
+    ctx.lineTo(0, s);
+    ctx.lineTo(-s * 0.6, 0);
+    ctx.closePath();
     ctx.fill();
-  });
+    ctx.restore();
+  }
+
+  ctx.restore();
+  return { w, h };
+}
+
+// Kleine goldene Plakette unten am Rahmen, nur sinnvoll zusammen mit dem
+// Rahmen-Effekt - wird daher separat aktiviert, aber vom Rahmen abhängig.
+function drawNamePlate(angle, cx, cy, frameW, frameH) {
+  const plateW = frameW * 0.7;
+  const plateH = frameH * 0.115;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.translate(0, frameH / 2 * 0.95);
+  if (facingMode === 'user') ctx.scale(-1, 1); // Text lesbar halten trotz Selfie-Spiegelung
+
+  ctx.beginPath();
+  ctx.roundRect(-plateW / 2, -plateH / 2, plateW, plateH, plateH * 0.3);
+  ctx.fillStyle = '#7A5A0B';
+  ctx.fill();
+  ctx.strokeStyle = '#F9E28A';
+  ctx.lineWidth = Math.max(2, plateH * 0.08);
+  ctx.stroke();
+
+  let fontSize = plateH * 0.46;
+  ctx.font = `700 ${fontSize}px Georgia, serif`;
+  const text = 'Superbuden-Weihnachtsparty 2026';
+  let tw = ctx.measureText(text).width;
+  if (tw > plateW * 0.9) {
+    fontSize *= (plateW * 0.9) / tw;
+    ctx.font = `700 ${fontSize}px Georgia, serif`;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#F9E28A';
+  ctx.fillText(text, 0, plateH * 0.02);
+  ctx.restore();
+}
+
+// Breiter Graffiti-artiger Textstreifen über die volle Bildbreite unten -
+// unabhängig von den erkannten Gesichtern, ein Mal pro Bild gezeichnet.
+function drawGraffitiBanner(variant) {
+  const w = canvas.width;
+  const bannerH = canvas.height * 0.14;
+  const y = canvas.height - bannerH * 0.65;
+  const text = 'Superbuden-Weihnachtsparty 2026';
+
+  ctx.save();
+  ctx.translate(w / 2, y);
+  if (facingMode === 'user') ctx.scale(-1, 1); // Text lesbar halten trotz Selfie-Spiegelung
+  ctx.rotate(-0.03); // leichter Schwung wie ein gesprühter Streifen
+
+  const stripeGrad = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  if (variant === 'color') {
+    stripeGrad.addColorStop(0, '#FF3D78');
+    stripeGrad.addColorStop(0.5, '#3DB4FF');
+    stripeGrad.addColorStop(1, '#F4D93D');
+  } else {
+    stripeGrad.addColorStop(0, '#7A5A0B');
+    stripeGrad.addColorStop(0.5, '#F9E28A');
+    stripeGrad.addColorStop(1, '#7A5A0B');
+  }
+  ctx.fillStyle = stripeGrad;
+  ctx.fillRect(-w * 0.6, -bannerH / 2, w * 1.2, bannerH);
+
+  let fontSize = bannerH * 0.5;
+  ctx.font = `900 ${fontSize}px "Segoe UI", sans-serif`;
+  let tw = ctx.measureText(text).width;
+  if (tw > w * 0.92) {
+    fontSize *= (w * 0.92) / tw;
+    ctx.font = `900 ${fontSize}px "Segoe UI", sans-serif`;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = fontSize * 0.13;
+  ctx.strokeStyle = variant === 'color' ? '#1a1410' : '#3E2A08';
+  ctx.strokeText(text, 0, 0);
+  ctx.fillStyle = variant === 'color' ? '#FFFFFF' : '#FBF1D6';
+  ctx.fillText(text, 0, 0);
   ctx.restore();
 }
 
@@ -300,6 +410,7 @@ function drawFloatingSymbol(symbol, faceWidth, x, y, t) {
   const bob = Math.sin(t / 260 + x * 0.01) * faceWidth * 0.03;
   ctx.save();
   ctx.translate(x, y + bob);
+  if (facingMode === 'user') ctx.scale(-1, 1); // Text lesbar halten trotz Selfie-Spiegelung
   ctx.font = `900 ${faceWidth * 0.55}px "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
