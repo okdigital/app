@@ -1130,7 +1130,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -1229,8 +1229,16 @@ window.addEventListener('online', flushQueue);
 setInterval(flushQueue, 20000); // alle 20 Sekunden automatisch nachschauen
 // ----------------------------------------------------------------------
 
+let msgTimeout = null;
+
 function showMsg(text, type = 'ok') {
   document.getElementById('msgBox').innerHTML = `<div class="msg ${type}">${text}</div>`;
+  clearTimeout(msgTimeout);
+  msgTimeout = setTimeout(clearMsg, 4000);
+}
+
+function clearMsg() {
+  document.getElementById('msgBox').innerHTML = '';
 }
 
 async function updateView() {
@@ -1254,6 +1262,7 @@ async function updateView() {
 }
 
 function setView(view) {
+  clearMsg();
   document.getElementById('authView').classList.toggle('hidden', view !== 'auth');
   document.getElementById('profileView').classList.toggle('hidden', view !== 'profile');
   document.getElementById('infoView').classList.toggle('hidden', view !== 'info');
