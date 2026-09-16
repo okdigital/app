@@ -20,6 +20,15 @@ const video = document.getElementById('cameraVideo');
 const canvas = document.getElementById('cameraCanvas');
 const ctx = canvas.getContext('2d');
 
+// Eigene, kleine Canvas nur für die Gesichtserkennung. Bei sehr hoher
+// Kamera-Auflösung (für Fotobuch-Druck) würde MediaPipe sonst jedes einzelne
+// Riesenbild in Echtzeit verarbeiten müssen und zuverlässig aussteigen -
+// die erkannten Positionen sind ohnehin relative Koordinaten (0-1) und
+// passen unverändert auf die volle Aufnahmegröße.
+const detectCanvas = document.createElement('canvas');
+const detectCtx = detectCanvas.getContext('2d');
+const DETECT_WIDTH = 480;
+
 // Echte Grafiken statt handgezeichneter Formen — liegen unter public/masks/
 const maskImages = {};
 ['santa', 'antlers', 'glasses', 'halo'].forEach(name => {
@@ -71,7 +80,9 @@ async function openCameraView() {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       // "ideal" statt fixer Werte: Browser nutzt automatisch die höchste
       // Auflösung, die die jeweilige Kamera hergibt (für Fotobuch-Druck).
-      video: { facingMode, width: { ideal: 4096 }, height: { ideal: 4096 } },
+      // Echtes 16:9-Zielformat statt einer unrealistischen quadratischen
+      // Vorgabe, damit die Kamera eine sinnvolle native Auflösung wählt.
+      video: { facingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
       audio: false,
     });
   } catch (e) {
@@ -116,7 +127,13 @@ function renderLoop() {
   if (faceLandmarker && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
     try {
-      const result = faceLandmarker.detectForVideo(video, performance.now());
+      // Video zuerst auf eine kleine Canvas herunterskalieren - schnell und
+      // zuverlässig, unabhängig davon, wie hochauflösend die Kamera läuft.
+      detectCanvas.width = DETECT_WIDTH;
+      detectCanvas.height = Math.round(DETECT_WIDTH * (video.videoHeight / video.videoWidth)) || DETECT_WIDTH;
+      detectCtx.drawImage(video, 0, 0, detectCanvas.width, detectCanvas.height);
+
+      const result = faceLandmarker.detectForVideo(detectCanvas, performance.now());
       if (result.faceLandmarks && result.faceLandmarks.length) {
         allLandmarks = result.faceLandmarks; // ein Eintrag pro erkanntem Gesicht
       }
@@ -489,7 +506,7 @@ document.getElementById('cameraSwitchBtn').onclick = async () => {
   let newStream;
   try {
     newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: newFacingMode, width: { ideal: 4096 }, height: { ideal: 4096 } },
+      video: { facingMode: newFacingMode, width: { ideal: 3840 }, height: { ideal: 2160 } },
       audio: false,
     });
   } catch (e) {
