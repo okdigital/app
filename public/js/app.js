@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.6.3';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -121,18 +121,38 @@ async function updateView() {
   }
   try {
     const profile = await api('/profile.php', null, true, 'GET');
-    if (!profile.username) {
-      setView('profile');
-    } else {
-      window.myUsername = profile.username;
-      isAdmin = !!profile.is_admin;
-      document.getElementById('adminMaskEditorLink').classList.toggle('hidden', !isAdmin);
-      const displayName = profile.username || 'Lieblingsmensch';
-      document.getElementById('infoGreeting').textContent = `Hallo, ${displayName}!`;
-      setView('info');
-    }
+    // Für den Offline-Fall merken, wie das Profil zuletzt aussah.
+    localStorage.setItem('wa_profile', JSON.stringify(profile));
+    applyProfile(profile);
   } catch (e) {
+    if (e.isOffline) {
+      // Kein Netz, aber Token vorhanden: nicht ausloggen, sondern mit dem
+      // zuletzt bekannten Profil weitermachen, wenn eins gecacht ist.
+      const cached = localStorage.getItem('wa_profile');
+      if (cached) {
+        applyProfile(JSON.parse(cached));
+        showMsg('Kein Internet gerade — du bleibst angemeldet, einige Funktionen brauchen aber wieder Netz.', 'error');
+      } else {
+        // Allererster Aufruf ohne je online gewesen zu sein: es gibt
+        // nichts, was wir anzeigen könnten, ohne den Server zu fragen.
+        showMsg('Kein Internet gerade — bitte einmal mit Verbindung starten, danach geht es auch offline.', 'error');
+      }
+      return;
+    }
     // Token ungültig — api() hat bereits ausgeloggt und erneut updateView() aufgerufen
+  }
+}
+
+function applyProfile(profile) {
+  if (!profile.username) {
+    setView('profile');
+  } else {
+    window.myUsername = profile.username;
+    isAdmin = !!profile.is_admin;
+    document.getElementById('adminMaskEditorLink').classList.toggle('hidden', !isAdmin);
+    const displayName = profile.username || 'Lieblingsmensch';
+    document.getElementById('infoGreeting').textContent = `Hallo, ${displayName}!`;
+    setView('info');
   }
 }
 
@@ -173,11 +193,20 @@ document.getElementById('homeBtn').onclick = () => setView('info');
 async function api(path, body, needsAuth = false, method = 'POST') {
   const headers = { 'Content-Type': 'application/json' };
   if (needsAuth) headers['Authorization'] = 'Bearer ' + token;
-  const res = await fetch(BASE + path, {
-    method,
-    headers,
-    body: method === 'GET' ? undefined : JSON.stringify(body || {}),
-  });
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      method,
+      headers,
+      body: method === 'GET' ? undefined : JSON.stringify(body || {}),
+    });
+  } catch (networkErr) {
+    // Server nicht erreichbar (offline) — das ist etwas anderes als ein
+    // ungültiger/abgelaufener Token und muss NICHT ausloggen.
+    const err = new Error('Kein Netz — Server nicht erreichbar.');
+    err.isOffline = true;
+    throw err;
+  }
   const data = await res.json();
   if (res.status === 401 && needsAuth) {
     token = null;
