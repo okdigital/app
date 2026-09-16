@@ -1,0 +1,31 @@
+name: Deploy to Kopierhelfer
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: SSH-Key laden
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Host-Key vertrauen
+        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Per rsync deployen
+        run: |
+          rsync -avz --delete \
+            --exclude 'data/' \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'test-flow.sh' \
+            --exclude 'test-flow.ps1' \
+            --exclude 'debug-totp.php' \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
