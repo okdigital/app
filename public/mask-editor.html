@@ -67,6 +67,7 @@
 </head>
 <body>
 <div class="layout">
+  <a href="/" style="display:inline-block; font-size:13px; color:var(--pink-deep); text-decoration:none; margin-bottom:4px;">← Zurück zur App</a>
   <div>
     <h1>🎯 Masken-Editor</h1>
     <p class="sub">Nur zum Kalibrieren der AR-Masken-Position — kein Teil der eigentlichen App.</p>
@@ -291,9 +292,34 @@ async function startCamera() {
 }
 
 document.getElementById('switchCameraBtn').onclick = async () => {
-  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+
+  let newStream;
+  try {
+    newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacingMode }, audio: false });
+  } catch (e) {
+    statusEl.textContent = 'Kamera-Wechsel fehlgeschlagen: ' + e.message;
+    statusEl.style.display = 'flex';
+    setTimeout(() => statusEl.style.display = 'none', 2000);
+    return; // alte Kamera bleibt unangetastet
+  }
+
   if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-  startCamera();
+  video.srcObject = newStream;
+  facingMode = newFacingMode;
+
+  await video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  lastVideoTime = -1;
+
+  // Wie in der Haupt-App: das Erkennungsmodell verträgt keine neue
+  // Kamera-Quelle auf derselben laufenden Instanz — sauber neu aufbauen.
+  if (faceLandmarker) {
+    try { faceLandmarker.close(); } catch (e) { /* wird eh ersetzt */ }
+    faceLandmarker = null;
+  }
+  await ensureModelLoaded();
 };
 
 function renderLoop() {
