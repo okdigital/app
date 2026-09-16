@@ -96,6 +96,12 @@ function migrate_schema(PDO $pdo): void {
     if (!in_array('avatar_filename', $cols, true)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN avatar_filename TEXT");
     }
+    if (!in_array('food_preference', $cols, true)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN food_preference TEXT");
+    }
+    if (!in_array('drink_wish', $cols, true)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN drink_wish TEXT");
+    }
 
     $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array('board_posts', $tables, true)) {

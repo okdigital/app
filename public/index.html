@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WeihnachtsApp</title>
+<title>WeihnachtsApp — Testclient</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -27,7 +27,7 @@
   }
   * { box-sizing: border-box; }
   html, body {
-    margin: 0; height: 100%; background: var(--snow); color: var(--ink);
+    margin: 0; height: 100vh; height: 100dvh; background: var(--snow); color: var(--ink);
     font-family: 'Inter', -apple-system, "Segoe UI", sans-serif;
     overflow: hidden;
   }
@@ -93,12 +93,12 @@
   .panel-note { font-size: 12px; color: var(--muted); margin: -6px 0 12px; }
 
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  input, textarea {
+  input, textarea, select {
     width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
     font-size: 14px; margin-bottom: 12px; background: var(--snow); color: var(--ink);
     font-family: inherit;
   }
-  input:focus, textarea:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
 
   .btn {
     display: inline-block; border: none; border-radius: 24px; padding: 10px 18px;
@@ -309,6 +309,13 @@
           <div class="nav-card-sub">Fotos ansehen, kommentieren, reagieren</div>
         </div>
       </div>
+      <div class="nav-card" style="position:relative;" onclick="setView('info')">
+        <span class="nav-card-emoji">🎄</span>
+        <div>
+          <div class="nav-card-title">Infos zum Abend</div>
+          <div class="nav-card-sub">Ort, Zeiten, Essen &amp; Trinken, Notfallnummern</div>
+        </div>
+      </div>
       <div class="nav-card" style="position:relative;" onclick="setView('board')">
         <span class="nav-card-emoji">📌</span>
         <div>
@@ -328,6 +335,58 @@
       <p class="panel-note hidden" id="showMyMessagesLink" style="cursor:pointer; text-decoration:underline;" onclick="forceShowMyMessages()">
         Ordner "Meine Nachrichten" nicht da? Trotzdem anzeigen
       </p>
+    </div>
+
+    <!-- INFOS ZUM ABEND -->
+    <div id="infoView" class="hidden auth-scroll">
+      <div class="panel">
+        <h3>🎄 Frohes Fest, ihr Lieben!</h3>
+        <p style="font-size:14px; line-height:1.6;">
+          Hey zusammen! Bald ist es endlich so weit – wir schnappen uns die Superbude,
+          verwandeln sie für einen Abend in unser eigenes kleines Winter-Paradise und
+          lassen das Jahr gemeinsam ausklingen. Lichterketten statt Palmen, Glühwein statt
+          Cocktails, aber der gute Superbude-Vibe bleibt natürlich exakt derselbe. Bringt
+          gute Laune mit, den Rest übernehmen wir. Wir freuen uns riesig auf euch!
+        </p>
+      </div>
+
+      <div class="panel">
+        <h3>📍 Ort &amp; Zeit</h3>
+        <p style="font-size:14px; margin:0 0 6px;"><strong>Superbude Schanze – Winter-Paradise Lounge</strong></p>
+        <p style="font-size:14px; margin:0 0 12px; color:var(--muted);">Schulterblatt 12, 20357 Hamburg</p>
+        <p style="font-size:14px; margin:0;">🕖 Treffpunkt: <strong>19:00 Uhr</strong></p>
+        <p style="font-size:14px; margin:4px 0 0;">🌙 Ende: spätestens <strong>23:30 Uhr</strong></p>
+      </div>
+
+      <div class="panel">
+        <h3>🍝 Speisekarte</h3>
+        <p style="font-size:14px; line-height:1.6; margin:0 0 12px;">
+          Für den Hunger zwischendurch gibt's ein buntes Buffet – ob vegetarisch,
+          flexitarisch oder "ich esse alles", für alle ist gesorgt. Und ja, keine Sorge:
+          <strong>Pasta gibt's natürlich auch.</strong>
+        </p>
+        <label for="foodPreference">Deine Essens-Vorliebe</label>
+        <select id="foodPreference">
+          <option value="vegetarisch">Vegetarisch</option>
+          <option value="flexitarisch">Flexitarisch</option>
+          <option value="alles">Ich esse alles</option>
+        </select>
+        <label for="drinkWish" style="margin-top:8px;">Getränkewunsch (optional)</label>
+        <input id="drinkWish" type="text" placeholder="z.B. alkoholfreies Bier, Cola...">
+        <button id="savePreferencesBtn" class="btn btn-primary" style="margin-top:6px;">Speichern</button>
+      </div>
+
+      <div class="panel">
+        <h3>👀 Wer isst was</h3>
+        <div id="foodOverview"><p class="panel-note">Lädt...</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>☎️ Wichtige Nummern</h3>
+        <p style="font-size:14px; margin:0 0 6px;">🚕 Taxi Hamburg: <strong>040 – 55 66 77</strong></p>
+        <p style="font-size:14px; margin:0;">🎅 Weihnachtsmann (3 Engel für Charlie): <strong>0800 – XMAS 2026</strong></p>
+        <p class="panel-note" style="margin-top:8px;">(Nur für waschechte Rentier-Notfälle.)</p>
+      </div>
     </div>
 
     <!-- PROFIL EINRICHTEN (einmalig nach erster Anmeldung) -->
@@ -1133,6 +1192,7 @@ function setView(view) {
   document.getElementById('authView').classList.toggle('hidden', view !== 'auth');
   document.getElementById('profileView').classList.toggle('hidden', view !== 'profile');
   document.getElementById('landingView').classList.toggle('hidden', view !== 'landing');
+  document.getElementById('infoView').classList.toggle('hidden', view !== 'info');
   document.getElementById('mainView').classList.toggle('hidden', view !== 'feed');
   document.getElementById('boardView').classList.toggle('hidden', view !== 'board');
   document.getElementById('myMessagesView').classList.toggle('hidden', view !== 'myMessages');
@@ -1155,6 +1215,7 @@ function setView(view) {
   if (view === 'board') loadBoard();
   if (view === 'myMessages') loadMyMessages();
   if (view === 'landing') refreshLandingBadges();
+  if (view === 'info') loadInfoPreferences();
 }
 
 document.getElementById('homeBtn').onclick = () => setView('landing');
@@ -1448,6 +1509,59 @@ function updatePhotoCardLive(screen, data) {
 }
 
 document.getElementById('refreshBtn').onclick = loadFeed;
+
+// -- Infos zum Abend: Essens-/Getränkewunsch --------------------------------
+async function loadInfoPreferences() {
+  try {
+    const profile = await api('/profile.php', null, true, 'GET');
+    if (profile.food_preference) {
+      document.getElementById('foodPreference').value = profile.food_preference;
+    }
+    if (profile.drink_wish) {
+      document.getElementById('drinkWish').value = profile.drink_wish;
+    }
+  } catch (e) { /* still fehlschlagen, Formular bleibt auf Standardwerten */ }
+
+  try {
+    const overview = await api('/food-overview.php', null, true, 'GET');
+    renderFoodOverview(overview);
+  } catch (e) { /* Übersicht bleibt leer, kein Toast für Nebensache */ }
+}
+
+function renderFoodOverview(data) {
+  const el = document.getElementById('foodOverview');
+  const c = data.counts;
+  let html = `
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+      <span class="reaction" style="background:var(--chip, var(--snow)); border-radius:16px; padding:5px 12px; font-size:13px;">🥦 Vegetarisch: ${c.vegetarisch}</span>
+      <span style="background:var(--snow); border-radius:16px; padding:5px 12px; font-size:13px;">🍗 Flexitarisch: ${c.flexitarisch}</span>
+      <span style="background:var(--snow); border-radius:16px; padding:5px 12px; font-size:13px;">🍽️ Alles: ${c.alles}</span>
+      <span style="background:var(--snow); border-radius:16px; padding:5px 12px; font-size:13px; color:var(--muted);">Keine Angabe: ${c.keine_angabe}</span>
+    </div>
+  `;
+  if (data.people.length) {
+    html += data.people.map(p => `
+      <div style="font-size:13px; padding:6px 0; border-top:1px solid var(--line);">
+        <strong>${escapeHtml(p.username)}</strong> — ${escapeHtml(p.food_preference)}
+        ${p.drink_wish ? ' · 🥤 ' + escapeHtml(p.drink_wish) : ''}
+      </div>
+    `).join('');
+  } else {
+    html += '<p class="panel-note">Noch niemand hat eine Angabe gemacht.</p>';
+  }
+  el.innerHTML = html;
+}
+
+document.getElementById('savePreferencesBtn').onclick = async () => {
+  const food_preference = document.getElementById('foodPreference').value;
+  const drink_wish = document.getElementById('drinkWish').value.trim();
+  try {
+    await api('/save-preferences.php', { food_preference, drink_wish }, true);
+    showMsg('Danke, ist notiert!', 'ok');
+    const overview = await api('/food-overview.php', null, true, 'GET');
+    renderFoodOverview(overview);
+  } catch (e) { showMsg(e.message, 'error'); }
+};
 
 // -- Schwarzes Brett -----------------------------------------------------
 function setBadge(id, count) {
