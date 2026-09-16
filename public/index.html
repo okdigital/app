@@ -2009,6 +2009,14 @@ const video = document.getElementById('cameraVideo');
 const canvas = document.getElementById('cameraCanvas');
 const ctx = canvas.getContext('2d');
 
+// Echte Grafiken statt handgezeichneter Formen — liegen unter public/masks/
+const maskImages = {};
+['santa', 'antlers', 'glasses', 'halo'].forEach(name => {
+  const img = new Image();
+  img.src = '/masks/' + name + '.png';
+  maskImages[name] = img;
+});
+
 async function ensureModelLoaded() {
   if (faceLandmarker || modelLoadFailed) return;
   try {
@@ -2124,65 +2132,29 @@ function faceBoundingBox(landmarks) {
   };
 }
 
+function drawImageAnchored(img, anchorXFrac, anchorYFrac, targetX, targetY, targetWidth) {
+  if (!img || !img.complete || !img.naturalWidth) return;
+  const scale = targetWidth / img.naturalWidth;
+  const targetHeight = img.naturalHeight * scale;
+  const drawX = targetX - anchorXFrac * targetWidth;
+  const drawY = targetY - anchorYFrac * targetHeight;
+  ctx.drawImage(img, drawX, drawY, targetWidth, targetHeight);
+}
+
 function drawMask(type, box) {
   const cx = box.x + box.w / 2;
   if (type === 'santa') {
-    const hatW = box.w * 1.15, hatH = box.h * 0.7;
-    const baseY = box.y - box.h * 0.22;
-    ctx.fillStyle = '#c8102e';
-    ctx.beginPath();
-    ctx.moveTo(cx - hatW / 2, baseY);
-    ctx.lineTo(cx + hatW / 2, baseY);
-    ctx.lineTo(cx + hatW * 0.1, baseY - hatH);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(cx, baseY, hatW / 2, hatH * 0.09, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + hatW * 0.1, baseY - hatH, hatH * 0.12, 0, Math.PI * 2);
-    ctx.fill();
+    // Anker = Mitte des weißen Bunds (Fell-Rand) der Mütze im Bild
+    drawImageAnchored(maskImages.santa, 0.5, 0.61, cx, box.y - box.h * 0.22, box.w * 1.3);
   } else if (type === 'antlers') {
-    ctx.strokeStyle = '#7a4a25';
-    ctx.lineWidth = Math.max(4, box.w * 0.04);
-    ctx.lineCap = 'round';
-    const topY = box.y - box.h * 0.12;
-    [-1, 1].forEach(side => {
-      const baseX = cx + side * box.w * 0.32;
-      ctx.beginPath();
-      ctx.moveTo(baseX, topY + box.h * 0.15);
-      ctx.lineTo(baseX + side * box.w * 0.08, topY - box.h * 0.25);
-      ctx.moveTo(baseX + side * box.w * 0.02, topY - box.h * 0.05);
-      ctx.lineTo(baseX + side * box.w * 0.22, topY - box.h * 0.12);
-      ctx.moveTo(baseX + side * box.w * 0.04, topY - box.h * 0.15);
-      ctx.lineTo(baseX + side * box.w * 0.2, topY - box.h * 0.3);
-      ctx.stroke();
-    });
+    // Anker = unteres Ende, wo die Geweihe "aus dem Kopf wachsen"
+    drawImageAnchored(maskImages.antlers, 0.5, 0.97, cx, box.y - box.h * 0.1, box.w * 1.5);
   } else if (type === 'glasses') {
-    const eyeY = box.y + box.h * 0.42;
-    const lensR = box.w * 0.17;
-    ctx.strokeStyle = '#14151a';
-    ctx.lineWidth = Math.max(3, box.w * 0.025);
-    [-1, 1].forEach(side => {
-      const ex = cx + side * box.w * 0.24;
-      ctx.beginPath();
-      ctx.arc(ex, eyeY, lensR, 0, Math.PI * 2);
-      ctx.fillStyle = side < 0 ? 'rgba(200,16,46,0.55)' : 'rgba(11,110,79,0.55)';
-      ctx.fill();
-      ctx.stroke();
-    });
-    ctx.beginPath();
-    ctx.moveTo(cx - box.w * 0.07, eyeY);
-    ctx.lineTo(cx + box.w * 0.07, eyeY);
-    ctx.stroke();
+    // Anker = Steg-Mitte zwischen den Gläsern
+    drawImageAnchored(maskImages.glasses, 0.5, 0.5, cx, box.y + box.h * 0.42, box.w * 1.35);
   } else if (type === 'halo') {
-    const haloY = box.y - box.h * 0.32;
-    ctx.strokeStyle = '#ffd23f';
-    ctx.lineWidth = Math.max(4, box.w * 0.035);
-    ctx.beginPath();
-    ctx.ellipse(cx, haloY, box.w * 0.32, box.h * 0.08, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    // Anker = Ring-Mitte
+    drawImageAnchored(maskImages.halo, 0.5, 0.5, cx, box.y - box.h * 0.32, box.w * 1.3);
   }
 }
 
