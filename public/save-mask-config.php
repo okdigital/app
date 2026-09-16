@@ -36,6 +36,9 @@ $config[$name] = [
     'width'   => $width,
 ];
 
-file_put_contents($configPath, json_encode($config, JSON_PRETTY_PRINT));
+$written = @file_put_contents($configPath, json_encode($config, JSON_PRETTY_PRINT));
+if ($written === false) {
+    json_error(500, 'Konnte config.json nicht schreiben — vermutlich fehlende Schreibrechte für www-data auf dem Server');
+}
 
 echo json_encode(['status' => 'ok', 'config' => $config[$name]]);
