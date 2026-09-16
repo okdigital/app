@@ -336,34 +336,16 @@
       </div>
     </div>
 
-    <!-- LANDINGPAGE nach dem Login -->
-    <div id="landingView" class="hidden auth-scroll">
-      <div class="panel">
-        <h3 id="landingGreeting">Willkommen!</h3>
-        <p class="panel-note">Schön, dass du dabei bist. Wähle, wo's hingeht:</p>
+    <!-- INFOS ZUM ABEND (Startseite nach dem Login) -->
+    <div id="infoView" class="hidden auth-scroll">
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <button class="btn btn-primary" style="flex:1; margin:0; position:relative;" onclick="setView('feed')">📷 Foto-Feed</button>
+        <button class="btn btn-quiet" style="flex:1; margin:0; position:relative; background:var(--paper);" onclick="setView('board')">
+          📌 Schwarzes Brett
+          <span id="boardBadge" class="badge hidden" style="top:-8px; right:-8px;">0</span>
+        </button>
       </div>
-      <div class="nav-card" style="position:relative;" onclick="setView('feed')">
-        <span class="nav-card-emoji">📷</span>
-        <div>
-          <div class="nav-card-title">Foto-Feed</div>
-          <div class="nav-card-sub">Fotos ansehen, kommentieren, reagieren</div>
-        </div>
-      </div>
-      <div class="nav-card" style="position:relative;" onclick="setView('info')">
-        <span class="nav-card-emoji">🎄</span>
-        <div>
-          <div class="nav-card-title">Infos zum Abend</div>
-          <div class="nav-card-sub">Ort, Zeiten, Essen &amp; Trinken, Notfallnummern</div>
-        </div>
-      </div>
-      <div class="nav-card" style="position:relative;" onclick="setView('board')">
-        <span class="nav-card-emoji">📌</span>
-        <div>
-          <div class="nav-card-title">Schwarzes Brett</div>
-          <div class="nav-card-sub">Fahrgemeinschaften &amp; Infos</div>
-        </div>
-        <span id="boardBadge" class="badge hidden">0</span>
-      </div>
+
       <div class="nav-card hidden" id="myMessagesNavCard" style="position:relative;" onclick="setView('myMessages')">
         <span class="nav-card-emoji">✉️</span>
         <div>
@@ -376,16 +358,8 @@
         Ordner "Meine Nachrichten" nicht da? Trotzdem anzeigen
       </p>
 
-      <div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--line);">
-        <p class="panel-note" style="margin:0 0 8px;">Version <span id="appVersion"></span></p>
-        <button id="checkUpdateBtn" class="btn btn-quiet" style="font-size:12px; padding:6px 14px;">🔄 Nach Updates suchen</button>
-      </div>
-    </div>
-
-    <!-- INFOS ZUM ABEND -->
-    <div id="infoView" class="hidden auth-scroll">
       <div class="panel">
-        <h3>🎄 Super Fest, ihr Lieben!</h3>
+        <h3 id="infoGreeting">Hallo!</h3>
         <p style="font-size:14px; line-height:1.6;">
           Hey zusammen! Am <strong>2. Dezember</strong> ist es endlich so weit. Wir treffen
           uns erstmal ganz entspannt in unserer Bude auf einen Aperitif – und wenn alle da
@@ -437,6 +411,11 @@
           📍 <a href="https://www.google.com/maps/search/?api=1&query=Hamburger+Michel%2C+Hamburg" target="_blank" rel="noopener" style="color:var(--pink-deep);">Geheimer Treffpunkt der 3 Engel</a>
         </p>
         <p class="panel-note" style="margin-top:8px;">(Nur für waschechte Rentier-Notfälle – und neugierige Engel.)</p>
+      </div>
+
+      <div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--line);">
+        <p class="panel-note" style="margin:0 0 8px;">Version <span id="appVersion"></span></p>
+        <button id="checkUpdateBtn" class="btn btn-quiet" style="font-size:12px; padding:6px 14px;">🔄 Nach Updates suchen</button>
       </div>
     </div>
 
@@ -1258,8 +1237,9 @@ async function updateView() {
       setView('profile');
     } else {
       window.myUsername = profile.username;
-      document.getElementById('landingGreeting').textContent = `Hallo, ${profile.username}!`;
-      setView('landing');
+      const displayName = profile.username || 'Lieblingsmensch';
+      document.getElementById('infoGreeting').textContent = `Hallo, ${displayName}!`;
+      setView('info');
     }
   } catch (e) {
     // Token ungültig — api() hat bereits ausgeloggt und erneut updateView() aufgerufen
@@ -1269,14 +1249,13 @@ async function updateView() {
 function setView(view) {
   document.getElementById('authView').classList.toggle('hidden', view !== 'auth');
   document.getElementById('profileView').classList.toggle('hidden', view !== 'profile');
-  document.getElementById('landingView').classList.toggle('hidden', view !== 'landing');
   document.getElementById('infoView').classList.toggle('hidden', view !== 'info');
   document.getElementById('mainView').classList.toggle('hidden', view !== 'feed');
   document.getElementById('boardView').classList.toggle('hidden', view !== 'board');
   document.getElementById('myMessagesView').classList.toggle('hidden', view !== 'myMessages');
 
   document.getElementById('logoutBtn').classList.toggle('hidden', view === 'auth');
-  document.getElementById('homeBtn').classList.toggle('hidden', view === 'auth' || view === 'profile' || view === 'landing');
+  document.getElementById('homeBtn').classList.toggle('hidden', view === 'auth' || view === 'profile' || view === 'info');
   document.getElementById('shutterBtn').classList.toggle('hidden', view !== 'feed');
 
   if (view !== 'feed') {
@@ -1292,11 +1271,13 @@ function setView(view) {
   }
   if (view === 'board') loadBoard();
   if (view === 'myMessages') loadMyMessages();
-  if (view === 'landing') refreshLandingBadges();
-  if (view === 'info') loadInfoPreferences();
+  if (view === 'info') {
+    loadInfoPreferences();
+    refreshLandingBadges();
+  }
 }
 
-document.getElementById('homeBtn').onclick = () => setView('landing');
+document.getElementById('homeBtn').onclick = () => setView('info');
 
 async function api(path, body, needsAuth = false, method = 'POST') {
   const headers = { 'Content-Type': 'application/json' };
