@@ -246,8 +246,21 @@
 </div>
 
 <script src="/js/qrcode.js"></script>
-<script src="/js/app.js?v=1.6.1"></script>
+<script src="/js/app.js?v=1.6.2"></script>
 
-<script type="module" src="/js/ar-camera.js?v=1.6.1"></script>
+<script type="module" src="/js/ar-camera.js?v=1.6.2"></script>
+
+<script>
+  // Service Worker registrieren, damit die App-Hülle offline verfügbar
+  // ist. Schlägt die Registrierung fehl (z.B. sehr alter Browser),
+  // funktioniert die App online trotzdem ganz normal weiter.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Service Worker Registrierung fehlgeschlagen:', err);
+      });
+    });
+  }
+</script>
 </body>
 </html>

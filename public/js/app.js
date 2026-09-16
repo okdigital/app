@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -878,3 +878,11 @@ async function addComment(photoId) {
 }
 
 updateView();
+
+// Hinweis anzeigen, wenn die App offline geöffnet wird (Hülle kommt dank
+// Service Worker trotzdem, aber Login/Feed/Uploads brauchen echtes Netz).
+if (!navigator.onLine) {
+  showMsg('Kein Internet gerade — die App ist offline eingeschränkt nutzbar. Sobald wieder Netz da ist, klappt alles wie gewohnt.', 'error');
+}
+window.addEventListener('online', () => showMsg('Wieder online.', 'ok'));
+window.addEventListener('offline', () => showMsg('Kein Internet gerade — die App ist offline eingeschränkt nutzbar.', 'error'));
