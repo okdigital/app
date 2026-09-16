@@ -34,6 +34,29 @@
   }
   .header button:hover { background: rgba(255,255,255,0.3); }
 
+  /* -- Querformat: Header wird zur schmalen Seitenleiste statt Kopfzeile -- */
+  @media (orientation: landscape) {
+    .shell { flex-direction: row; max-width: none; margin: 0; }
+
+    .header {
+      --sidebar-w: 168px;
+      width: var(--sidebar-w); flex-shrink: 0; height: 100%;
+      flex-direction: column; align-items: flex-start; justify-content: flex-start;
+      gap: 16px; overflow-y: auto; padding: 16px 14px;
+    }
+    .header h1 { font-size: 18px; }
+    .header p { font-size: 10px; line-height: 1.4; }
+    .header > div:nth-child(2) { flex-direction: column; width: 100%; gap: 8px; }
+    .header button { width: 100%; }
+
+    /* Buttons, die fest auf dem Bildschirm zentriert sind (z.B. Auslöser),
+       müssen sich auf die Mitte des Inhaltsbereichs rechts der Seitenleiste
+       beziehen statt auf die Mitte des gesamten Bildschirms. */
+    .shutter-btn {
+      left: calc(168px + (100vw - 168px) / 2) !important;
+    }
+  }
+
   .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
 
   .msg {
@@ -276,4 +299,17 @@
     position: absolute; top: 16px; left: 16px; z-index: 3;
     width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.35); color: #fff; font-size: 16px; cursor: pointer;
+  }
+
+  /* -- Querformat: Masken-Leiste wird zur seitlichen Spalte, Auslöser
+     wandert an den Rand statt die Spalte zu verdecken -- */
+  @media (orientation: landscape) {
+    .mask-picker {
+      top: 64px; bottom: 64px; left: 14px; right: auto; width: 60px;
+      flex-direction: column; overflow-x: hidden; overflow-y: auto;
+      justify-content: flex-start; padding: 4px 0;
+    }
+    .camera-capture-btn {
+      left: auto; right: 28px; bottom: 50%; transform: translateY(50%);
+    }
   }

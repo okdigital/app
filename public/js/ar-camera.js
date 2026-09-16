@@ -122,6 +122,17 @@ function closeCameraView() {
 
 function renderLoop() {
   if (!cameraStream) return;
+
+  // Nach einer Geräte-Drehung liefert die Kamera ggf. ein anderes
+  // Seitenverhältnis. Ohne diesen Abgleich bleibt die Ausgabe-Canvas
+  // auf der beim Öffnen gemessenen Größe stehen -> verzerrtes Bild und
+  // falsch platzierte Masken. Kein Reload nötig, die Größe wird bei
+  // jedem Frame automatisch mit dem tatsächlichen Video abgeglichen.
+  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+
   let allLandmarks = [];
 
   if (faceLandmarker && video.currentTime !== lastVideoTime) {
