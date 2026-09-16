@@ -102,6 +102,9 @@ function migrate_schema(PDO $pdo): void {
     if (!in_array('drink_wish', $cols, true)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN drink_wish TEXT");
     }
+    if (!in_array('is_admin', $cols, true)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+    }
 
     $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array('board_posts', $tables, true)) {

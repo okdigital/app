@@ -11,6 +11,12 @@ jobs:
       - name: Code auschecken
         uses: actions/checkout@v4
 
+      - name: Versionsdatei schreiben
+        run: |
+          echo "commit: ${{ github.sha }}" > public/deploy-version.txt
+          echo "branch: ${{ github.ref_name }}" >> public/deploy-version.txt
+          echo "deployed: $(date -u +'%Y-%m-%d %H:%M UTC')" >> public/deploy-version.txt
+
       - name: SSH-Key laden
         uses: webfactory/ssh-agent@v0.9.0
         with:

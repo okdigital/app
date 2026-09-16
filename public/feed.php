@@ -2,7 +2,11 @@
 require_once __DIR__ . '/../lib/auth.php';
 header('Content-Type: application/json');
 
-require_auth(); // nur eingeloggte Nutzer sehen den Feed
+$currentUserId = require_auth(); // nur eingeloggte Nutzer sehen den Feed
+
+$isAdminStmt = db()->prepare('SELECT is_admin FROM users WHERE id = ?');
+$isAdminStmt->execute([$currentUserId]);
+$isAdmin = (bool)$isAdminStmt->fetchColumn();
 
 // Seitenweises Laden: "before" ist die kleinste bisher gesehene Foto-ID,
 // die App fragt beim Nachladen nach "alles, was älter ist als das".
@@ -13,7 +17,7 @@ if ($limit < 1) $limit = 10;
 $beforeId = isset($_GET['before']) ? (int)$_GET['before'] : null;
 
 $sql = "
-    SELECT p.id, p.filename, p.created_at,
+    SELECT p.id, p.filename, p.created_at, p.user_id,
            (SELECT COUNT(*) FROM comments c WHERE c.photo_id = p.id) AS comment_count,
            (SELECT COUNT(*) FROM reactions r WHERE r.photo_id = p.id AND r.emoji = '❤️') AS heart_count
     FROM photos p
@@ -62,6 +66,7 @@ foreach ($rows as &$row) {
     $row['comment_count'] = (int)$row['comment_count'];
     $row['heart_count'] = (int)$row['heart_count'];
     $row['view_url'] = build_signed_url($row['id']);
+    unset($row['user_id']);
 
     $commentStmt->execute([$row['id']]);
     $comments = $commentStmt->fetchAll();
@@ -87,4 +92,5 @@ echo json_encode([
     'photos' => $rows,
     'has_more' => $hasMore,
     'next_before' => $hasMore ? end($rows)['id'] : null,
+    'is_admin' => $isAdmin,
 ]);

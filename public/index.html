@@ -125,6 +125,13 @@
   /* -- Vollbild-Feed -- */
   #mainView { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
+  .admin-delete-btn {
+    position: absolute; top: 12px; right: 12px; z-index: 3;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.35);
+    font-size: 16px; cursor: pointer;
+  }
+
   .refresh-fab {
     position: absolute; top: 12px; left: 12px; z-index: 55;
     width: 38px; height: 38px; border-radius: 50%;
@@ -1854,12 +1861,14 @@ function navigateFeed(direction) {
 let feedNextBefore = null;
 let feedHasMore = false;
 let feedLoading = false;
+let isAdmin = false;
 
 async function loadFeed() {
   feedNextBefore = null;
   feedHasMore = false;
   try {
     const data = await api('/feed.php?limit=10', null, true, 'GET');
+    isAdmin = !!data.is_admin;
     renderFeed(data.photos);
     feedHasMore = data.has_more;
     feedNextBefore = data.next_before;
@@ -1902,6 +1911,15 @@ const EMOJI = {
   star:  String.fromCodePoint(0x2B50),
 };
 
+async function deletePhoto(photoId) {
+  if (!confirm('Dieses Foto wirklich endgültig löschen? Das kann nicht rückgängig gemacht werden.')) return;
+  try {
+    await api('/delete-photo.php', { photo_id: photoId }, true);
+    showMsg('Foto gelöscht.', 'ok');
+    loadFeed();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
 function buildPhotoCard(p) {
   const r = p.reaction_counts || { heart: p.heart_count || 0, laugh: 0, thumb: 0, star: 0 };
   const heartSize = 26 + Math.min(r.heart * 3, 20);
@@ -1910,9 +1928,13 @@ function buildPhotoCard(p) {
         `<div class="comment-item-inline"><img class="cmt-avatar" src="${BASE}${c.avatar_url}" alt=""><span><span class="who">${escapeHtml(c.username)}</span>${escapeHtml(c.text)}</span></div>`
       ).join('') + '</div>'
     : '<p class="comment-empty-inline">Noch kein Kommentar — schreib den ersten.</p>';
+  const deleteBtn = isAdmin
+    ? `<button class="admin-delete-btn" onclick="deletePhoto(${p.id})" title="Foto löschen (Admin)">🗑️</button>`
+    : '';
   return `
     <section class="photo-screen" data-photo-id="${p.id}">
       <img class="photo-full" src="${BASE}${p.view_url}" alt="${p.filename}" loading="lazy">
+      ${deleteBtn}
 
       <div class="action-bar">
         <button class="action-btn" onclick="react(${p.id}, 'heart')">
