@@ -60,6 +60,13 @@
 
   .auth-scroll { flex: 1; overflow-y: auto; padding: 20px; }
 
+  .info-sticky-nav {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 10px;
+    margin: -20px -20px 16px; padding: 16px 20px 10px;
+    background: var(--snow);
+  }
+
   .auth-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .auth-tab {
     flex: 1; background: var(--paper); border: 1px solid var(--line); border-radius: 24px;
@@ -338,7 +345,7 @@
 
     <!-- INFOS ZUM ABEND (Startseite nach dem Login) -->
     <div id="infoView" class="hidden auth-scroll">
-      <div style="display:flex; gap:10px; margin-bottom:16px;">
+      <div class="info-sticky-nav">
         <button class="btn btn-primary" style="flex:1; margin:0; position:relative;" onclick="setView('feed')">📷 Foto-Feed</button>
         <button class="btn btn-quiet" style="flex:1; margin:0; position:relative; background:var(--paper);" onclick="setView('board')">
           📌 Schwarzes Brett
@@ -1123,7 +1130,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.2.0';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -2013,7 +2020,6 @@ const ctx = canvas.getContext('2d');
 const maskImages = {};
 ['santa', 'antlers', 'glasses', 'halo'].forEach(name => {
   const img = new Image();
-  img.onerror = () => console.error(`Masken-Bild "${name}.png" konnte nicht geladen werden (Datei fehlt oder ist kaputt).`);
   img.src = '/masks/' + name + '.png';
   maskImages[name] = img;
 });
@@ -2098,9 +2104,7 @@ function renderLoop() {
 
   try {
     drawFrame(landmarks);
-  } catch (e) {
-    console.error('Fehler beim Zeichnen des Kamerabilds:', e);
-  }
+  } catch (e) { /* Frame überspringen, Schleife läuft weiter */ }
   // Läuft immer weiter, auch wenn beim Zeichnen oben etwas schiefging —
   // ein kaputtes Masken-Bild darf nie die ganze Kamera einfrieren.
   rafId = requestAnimationFrame(renderLoop);
@@ -2121,9 +2125,7 @@ function drawFrame(landmarks) {
       try {
         const box = faceBoundingBox(landmarks);
         drawMask(currentMask, box);
-      } catch (e) {
-        console.error(`Maske "${currentMask}" konnte nicht gezeichnet werden (Bilddatei kaputt/unpassend?):`, e);
-      }
+      } catch (e) { /* Maske überspringen, Kamerabild bleibt erhalten */ }
     }
   } finally {
     // Unbedingt immer ausführen — sonst bleibt eine verschobene/gespiegelte
@@ -2183,15 +2185,36 @@ document.querySelectorAll('.mask-btn').forEach(btn => {
 });
 
 document.getElementById('cameraSwitchBtn').onclick = async () => {
-  facingMode = facingMode === 'user' ? 'environment' : 'user';
-  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
-  cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false }).catch(() => null);
-  if (cameraStream) {
-    video.srcObject = cameraStream;
-    await video.play();
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+  const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+
+  let newStream;
+  try {
+    newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacingMode }, audio: false });
+  } catch (e) {
+    showMsg('Kamera konnte nicht gewechselt werden.', 'error');
+    return; // alte Kamera bleibt unangetastet, nichts kaputt gemacht
   }
+
+  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+  cameraStream = newStream;
+  facingMode = newFacingMode;
+
+  video.srcObject = cameraStream;
+  await video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  lastVideoTime = -1;
+
+  // Das Erkennungsmodell verträgt offenbar keine neue Kamera-Quelle auf
+  // demselben laufenden Modell — sauber schließen und neu aufbauen, statt
+  // stillschweigend kaputtzugehen und danach dauerhaft keine Gesichter
+  // mehr zu erkennen (auch nicht nach dem Zurückwechseln).
+  if (faceLandmarker) {
+    try { faceLandmarker.close(); } catch (e) { /* ignorieren, wird eh ersetzt */ }
+    faceLandmarker = null;
+  }
+  modelLoadFailed = false;
+  await ensureModelLoaded();
 };
 
 document.getElementById('cameraCloseBtn').onclick = closeCameraView;
