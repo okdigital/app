@@ -335,6 +335,11 @@
       <p class="panel-note hidden" id="showMyMessagesLink" style="cursor:pointer; text-decoration:underline;" onclick="forceShowMyMessages()">
         Ordner "Meine Nachrichten" nicht da? Trotzdem anzeigen
       </p>
+
+      <div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--line);">
+        <p class="panel-note" style="margin:0 0 8px;">Version <span id="appVersion"></span></p>
+        <button id="checkUpdateBtn" class="btn btn-quiet" style="font-size:12px; padding:6px 14px;">🔄 Nach Updates suchen</button>
+      </div>
     </div>
 
     <!-- INFOS ZUM ABEND -->
@@ -389,7 +394,7 @@
         <p style="font-size:14px; margin:0 0 6px;">🎅 Weihnachtsmann: <strong>0800 – XMAS 2026</strong></p>
         <p style="font-size:14px; margin:0 0 10px;">😇 3 Engel für Charlie: <strong>0800 – ENGEL 03</strong></p>
         <p style="font-size:14px; margin:0;">
-          📍 <a href="https://www.google.com/maps/search/?api=1&query=Herbertstra%C3%9Fe%2C+Hamburg" target="_blank" rel="noopener" style="color:var(--pink-deep);">Geheimer Treffpunkt der 3 Engel</a>
+          📍 <a href="https://www.google.com/maps/search/?api=1&query=Hamburger+Michel%2C+Hamburg" target="_blank" rel="noopener" style="color:var(--pink-deep);">Geheimer Treffpunkt der 3 Engel</a>
         </p>
         <p class="panel-note" style="margin-top:8px;">(Nur für waschechte Rentier-Notfälle – und neugierige Engel.)</p>
       </div>
@@ -1080,6 +1085,17 @@ var QRCode;
 <script>
 const BASE = window.location.origin;
 let token = localStorage.getItem('wa_token') || null;
+
+// Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
+// man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
+const APP_VERSION = '1.0.0';
+document.getElementById('appVersion').textContent = APP_VERSION;
+
+document.getElementById('checkUpdateBtn').onclick = () => {
+  // Cache-Buster in der URL erzwingt einen frischen Abruf von index.html,
+  // statt sich auf eine evtl. gecachte Kopie zu verlassen
+  window.location.href = window.location.pathname + '?v=' + Date.now();
+};
 
 // -- Offline-Warteschlange (IndexedDB) --------------------------------
 // Falls der Upload am Veranstaltungsabend mal nicht durchgeht (WLAN
