@@ -240,6 +240,39 @@
     border-radius: 10px; margin-bottom: 14px;
   }
   .capture-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .camera-view {
+    position: fixed; inset: 0; background: #000; z-index: 300;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .camera-view video, .camera-view canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  }
+  .camera-view video { visibility: hidden; }
+  .camera-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px; z-index: 2; text-align: center; padding: 0 30px;
+  }
+  .mask-picker {
+    position: absolute; bottom: 110px; left: 0; right: 0; z-index: 3;
+    display: flex; gap: 10px; overflow-x: auto; padding: 0 16px; justify-content: center;
+  }
+  .mask-btn {
+    flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.4);
+    font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .mask-btn.active { border-color: var(--pink); background: rgba(255,255,255,0.3); }
+  .camera-capture-btn {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 3;
+    width: 66px; height: 66px; border-radius: 50%; background: var(--pink);
+    border: 4px solid #fff; cursor: pointer;
+  }
+  .camera-switch-btn {
+    position: absolute; top: 16px; left: 16px; z-index: 3;
+    width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.35); color: #fff; font-size: 16px; cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -450,6 +483,22 @@
   <button id="shutterBtn" class="shutter-btn hidden" title="Foto aufnehmen"></button>
   <button id="focusCloseBtn" class="focus-close hidden" title="Schließen">✕</button>
   <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+
+  <div id="cameraView" class="camera-view hidden">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="cameraCanvas"></canvas>
+    <div id="cameraLoading" class="camera-loading">Kamera wird vorbereitet …</div>
+    <button id="cameraCloseBtn" class="focus-close" title="Schließen">✕</button>
+    <button id="cameraSwitchBtn" class="camera-switch-btn" title="Kamera wechseln">🔄</button>
+    <div class="mask-picker">
+      <button class="mask-btn active" data-mask="none" title="Keine Maske">🚫</button>
+      <button class="mask-btn" data-mask="santa" title="Nikolausmütze">🎅</button>
+      <button class="mask-btn" data-mask="antlers" title="Rentiergeweih">🦌</button>
+      <button class="mask-btn" data-mask="glasses" title="Partybrille">🕶️</button>
+      <button class="mask-btn" data-mask="halo" title="Engelsheiligenschein">😇</button>
+    </div>
+    <button id="cameraCaptureBtn" class="camera-capture-btn" title="Foto aufnehmen"></button>
+  </div>
 
   <div id="captureOverlay" class="capture-overlay hidden">
     <div class="capture-card">
@@ -1934,6 +1983,246 @@ async function addComment(photoId) {
 }
 
 updateView();
+</script>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+// -- AR-Masken-Kamera ------------------------------------------------------
+// Läuft komplett im Browser über MediaPipe Face Landmarker, kein natives
+// ARKit/ARCore nötig. Fällt auf den klassischen Datei-Auswähler zurück,
+// falls Kamera-Zugriff oder Modell-Laden fehlschlägt (z.B. älteres Gerät,
+// Desktop ohne Kamera, verweigerte Berechtigung).
+
+let faceLandmarker = null;
+let cameraStream = null;
+let facingMode = 'user';
+let currentMask = 'none';
+let rafId = null;
+let lastVideoTime = -1;
+let modelLoadFailed = false;
+
+const video = document.getElementById('cameraVideo');
+const canvas = document.getElementById('cameraCanvas');
+const ctx = canvas.getContext('2d');
+
+async function ensureModelLoaded() {
+  if (faceLandmarker || modelLoadFailed) return;
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        delegate: "GPU",
+      },
+      runningMode: "VIDEO",
+      numFaces: 1,
+    });
+  } catch (e) {
+    console.error('Face Landmarker konnte nicht geladen werden:', e);
+    modelLoadFailed = true;
+  }
+}
+
+async function openCameraView() {
+  document.getElementById('cameraView').classList.remove('hidden');
+  document.getElementById('cameraLoading').classList.remove('hidden');
+  document.getElementById('cameraLoading').textContent = 'Kamera wird vorbereitet …';
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode }, audio: false,
+    });
+  } catch (e) {
+    closeCameraView();
+    // Kein Kamera-Zugriff -> alter, zuverlässiger Weg über den Datei-Dialog
+    document.getElementById('cameraInput').value = '';
+    document.getElementById('cameraInput').click();
+    return;
+  }
+
+  video.srcObject = cameraStream;
+  await video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  await ensureModelLoaded();
+  document.getElementById('cameraLoading').classList.add('hidden');
+
+  if (!faceLandmarker) {
+    // Modell nicht verfügbar -> Kamera trotzdem nutzbar, nur ohne Masken
+    document.querySelectorAll('.mask-btn').forEach(b => b.disabled = true);
+  }
+
+  lastVideoTime = -1;
+  renderLoop();
+}
+
+function closeCameraView() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  document.getElementById('cameraView').classList.add('hidden');
+}
+
+function renderLoop() {
+  if (!cameraStream) return;
+  let landmarks = null;
+
+  if (faceLandmarker && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    try {
+      const result = faceLandmarker.detectForVideo(video, performance.now());
+      if (result.faceLandmarks && result.faceLandmarks.length) {
+        landmarks = result.faceLandmarks[0];
+      }
+    } catch (e) { /* einzelnen Frame überspringen, nicht die ganze Kamera abbrechen */ }
+  }
+
+  drawFrame(landmarks);
+  rafId = requestAnimationFrame(renderLoop);
+}
+
+function drawFrame(landmarks) {
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Spiegelung für den natürlichen Selfie-Blick bei Frontkamera
+  if (facingMode === 'user') {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  if (landmarks && currentMask !== 'none') {
+    const box = faceBoundingBox(landmarks);
+    drawMask(currentMask, box);
+  }
+  ctx.restore();
+}
+
+function faceBoundingBox(landmarks) {
+  let minX = 1, minY = 1, maxX = 0, maxY = 0;
+  for (const p of landmarks) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return {
+    x: minX * canvas.width,
+    y: minY * canvas.height,
+    w: (maxX - minX) * canvas.width,
+    h: (maxY - minY) * canvas.height,
+  };
+}
+
+function drawMask(type, box) {
+  const cx = box.x + box.w / 2;
+  if (type === 'santa') {
+    const hatW = box.w * 1.15, hatH = box.h * 0.85;
+    const baseY = box.y + box.h * 0.12;
+    ctx.fillStyle = '#c8102e';
+    ctx.beginPath();
+    ctx.moveTo(cx - hatW / 2, baseY);
+    ctx.lineTo(cx + hatW / 2, baseY);
+    ctx.lineTo(cx + hatW * 0.1, baseY - hatH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY, hatW / 2, hatH * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx + hatW * 0.1, baseY - hatH, hatH * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === 'antlers') {
+    ctx.strokeStyle = '#7a4a25';
+    ctx.lineWidth = Math.max(4, box.w * 0.04);
+    ctx.lineCap = 'round';
+    const topY = box.y + box.h * 0.05;
+    [-1, 1].forEach(side => {
+      const baseX = cx + side * box.w * 0.32;
+      ctx.beginPath();
+      ctx.moveTo(baseX, topY + box.h * 0.15);
+      ctx.lineTo(baseX + side * box.w * 0.08, topY - box.h * 0.25);
+      ctx.moveTo(baseX + side * box.w * 0.02, topY - box.h * 0.05);
+      ctx.lineTo(baseX + side * box.w * 0.22, topY - box.h * 0.12);
+      ctx.moveTo(baseX + side * box.w * 0.04, topY - box.h * 0.15);
+      ctx.lineTo(baseX + side * box.w * 0.2, topY - box.h * 0.3);
+      ctx.stroke();
+    });
+  } else if (type === 'glasses') {
+    const eyeY = box.y + box.h * 0.42;
+    const lensR = box.w * 0.17;
+    ctx.strokeStyle = '#14151a';
+    ctx.lineWidth = Math.max(3, box.w * 0.025);
+    [-1, 1].forEach(side => {
+      const ex = cx + side * box.w * 0.24;
+      ctx.beginPath();
+      ctx.arc(ex, eyeY, lensR, 0, Math.PI * 2);
+      ctx.fillStyle = side < 0 ? 'rgba(200,16,46,0.55)' : 'rgba(11,110,79,0.55)';
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(cx - box.w * 0.07, eyeY);
+    ctx.lineTo(cx + box.w * 0.07, eyeY);
+    ctx.stroke();
+  } else if (type === 'halo') {
+    const haloY = box.y - box.h * 0.18;
+    ctx.strokeStyle = '#ffd23f';
+    ctx.lineWidth = Math.max(4, box.w * 0.035);
+    ctx.beginPath();
+    ctx.ellipse(cx, haloY, box.w * 0.32, box.h * 0.08, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+document.querySelectorAll('.mask-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.mask-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMask = btn.dataset.mask;
+  };
+});
+
+document.getElementById('cameraSwitchBtn').onclick = async () => {
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+  cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false }).catch(() => null);
+  if (cameraStream) {
+    video.srcObject = cameraStream;
+    await video.play();
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+};
+
+document.getElementById('cameraCloseBtn').onclick = closeCameraView;
+
+document.getElementById('cameraCaptureBtn').onclick = () => {
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  closeCameraView();
+
+  pendingPhotoFile = { name: 'foto_' + Date.now() + '.jpg' };
+  pendingPhotoBase64 = dataUrl.split(',')[1];
+  document.getElementById('capturePreview').src = dataUrl;
+  document.getElementById('captureCaption').value = '';
+  document.getElementById('captureOverlay').classList.remove('hidden');
+};
+
+// Übernimmt den Kamera-Button vom klassischen Skript (das ihn zuerst auf
+// den Datei-Dialog gelegt hat) — läuft als Modul-Skript nach dem Parsen,
+// überschreibt die Zuweisung also zuverlässig.
+document.getElementById('shutterBtn').onclick = () => {
+  ensureModelLoaded(); // schon mal im Hintergrund starten, spart Wartezeit
+  openCameraView();
+};
 </script>
 </body>
 </html>
