@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.9.0';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -228,6 +228,25 @@ function showAuthTab(tab) {
 }
 document.getElementById('tabLoginBtn').onclick = () => showAuthTab('login');
 document.getElementById('tabRegisterBtn').onclick = () => showAuthTab('register');
+
+// -- 2FA-Code aus der Zwischenablage einfügen -------------------------------
+// Filtert auf reine Ziffern (max. 6), falls beim Kopieren aus der
+// Authenticator-App versehentlich Leerzeichen o.ä. mitkommen.
+async function pasteCodeInto(inputId) {
+  try {
+    const text = await navigator.clipboard.readText();
+    const digits = (text.match(/\d/g) || []).join('').slice(0, 6);
+    if (!digits) {
+      showMsg('Zwischenablage enthält keinen Code.', 'error');
+      return;
+    }
+    document.getElementById(inputId).value = digits;
+  } catch (e) {
+    showMsg('Einfügen nicht möglich — Zwischenablagen-Zugriff verweigert.', 'error');
+  }
+}
+document.getElementById('loginCodePasteBtn').onclick = () => pasteCodeInto('loginCode');
+document.getElementById('regCodePasteBtn').onclick = () => pasteCodeInto('regConfirmCode');
 
 let pendingRegisterEmail = null;
 

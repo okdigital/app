@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/app.css?v=1.8.1">
+<link rel="stylesheet" href="/css/app.css?v=1.9.0">
 </head>
 <body>
 <div class="shell">
@@ -44,7 +44,10 @@
         <label for="loginPassword">Passwort</label>
         <input id="loginPassword" type="password" placeholder="Passwort">
         <label for="loginCode">Code aus der Authenticator-App</label>
-        <input id="loginCode" type="text" maxlength="6" placeholder="123456">
+        <div class="code-input-row">
+          <input id="loginCode" type="text" maxlength="6" placeholder="123456">
+          <button type="button" id="loginCodePasteBtn" class="code-paste-btn" title="Aus Zwischenablage einfügen">📋 Einfügen</button>
+        </div>
         <button id="loginBtn" class="btn btn-primary">Anmelden</button>
       </div>
 
@@ -62,7 +65,10 @@
           <p class="panel-note">Scan klappt nicht? Schlüssel manuell eintragen:</p>
           <div class="totp-box" id="totpSecret"></div>
           <label for="regConfirmCode" style="margin-top:10px;">Code aus der Authenticator-App</label>
-          <input id="regConfirmCode" type="text" maxlength="6" placeholder="123456">
+          <div class="code-input-row">
+            <input id="regConfirmCode" type="text" maxlength="6" placeholder="123456">
+            <button type="button" id="regCodePasteBtn" class="code-paste-btn" title="Aus Zwischenablage einfügen">📋 Einfügen</button>
+          </div>
           <button id="verifyBtn" class="btn btn-primary">Code bestätigen</button>
         </div>
       </div>
@@ -258,9 +264,9 @@
 </div>
 
 <script src="/js/qrcode.js"></script>
-<script src="/js/app.js?v=1.8.1"></script>
+<script src="/js/app.js?v=1.9.0"></script>
 
-<script type="module" src="/js/ar-camera.js?v=1.8.1"></script>
+<script type="module" src="/js/ar-camera.js?v=1.9.0"></script>
 
 <script>
   // Service Worker registrieren, damit die App-Hülle offline verfügbar

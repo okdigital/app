@@ -82,12 +82,7 @@
   <div class="panel">
     <h3>Maske wählen</h3>
     <label for="maskSelect">Vorhandene Maske</label>
-    <select id="maskSelect">
-      <option value="santa">🎅 santa.png</option>
-      <option value="antlers">🦌 antlers.png</option>
-      <option value="glasses">🕶️ glasses.png</option>
-      <option value="halo">😇 halo.png</option>
-    </select>
+    <select id="maskSelect"></select>
     <label for="customFile">Oder eigenes Bild testen (PNG, transparent)</label>
     <input type="file" id="customFile" accept="image/png">
   </div>
@@ -196,7 +191,23 @@ async function loadMask(name) {
   } catch (e) { /* keine Konfiguration gefunden, Regler bleiben wie sie sind */ }
 }
 document.getElementById('maskSelect').addEventListener('change', (e) => loadMask(e.target.value));
-loadMask('santa');
+
+// Dropdown dynamisch aus dem tatsächlichen Ordnerinhalt befüllen, statt
+// eine feste Liste zu pflegen — zeigt automatisch auch neu hochgeladene
+// Masken-PNGs an, die vorher im Editor unsichtbar waren.
+async function populateMaskList() {
+  const select = document.getElementById('maskSelect');
+  let names = ['santa', 'antlers', 'glasses', 'halo']; // Fallback, falls die Liste nicht geladen werden kann
+  try {
+    const res = await fetch('/list-masks.php?t=' + Date.now());
+    const fetched = await res.json();
+    if (Array.isArray(fetched) && fetched.length) names = fetched;
+  } catch (e) { /* Fallback-Liste bleibt bestehen */ }
+
+  select.innerHTML = names.map((n) => `<option value="${n}">${n}.png</option>`).join('');
+  loadMask(names[0]);
+}
+populateMaskList();
 
 document.getElementById('customFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
