@@ -30,12 +30,32 @@ const detectCtx = detectCanvas.getContext('2d');
 const DETECT_WIDTH = 480;
 
 // Echte Grafiken statt handgezeichneter Formen — liegen unter public/masks/
+// Bilder werden bei Bedarf lazy nachgeladen (siehe getMaskImage), damit JEDE
+// PNG dort automatisch funktioniert, nicht nur eine fest im Code benannte
+// Liste. Neue Masken-Datei hochladen genügt — kein Code-/Deploy-Schritt mehr.
 const maskImages = {};
-['santa', 'antlers', 'glasses', 'halo'].forEach(name => {
-  const img = new Image();
-  img.src = '/masks/' + name + '.png';
-  maskImages[name] = img;
-});
+function getMaskImage(name) {
+  if (!maskImages[name]) {
+    const img = new Image();
+    img.src = '/masks/' + name + '.png';
+    maskImages[name] = img;
+  }
+  return maskImages[name];
+}
+
+// Diese Effekte werden direkt aus Landmark-Punkten gezeichnet (keine PNG-
+// Datei, siehe drawEffectsForFace weiter unten) — alles andere, was als
+// aktive Maske markiert wird, gilt automatisch als Bild-Maske aus
+// public/masks/.
+const HAND_DRAWN_EFFECTS = new Set([
+  'frame', 'plaque', 'nose', 'earrings', 'beard', 'question', 'exclaim', 'bannerColor', 'bannerGold',
+]);
+
+// Sinnvoller Startwert für Bild-Masken ohne eigenen config.json-Eintrag,
+// damit eine frisch hochgeladene PNG sofort sichtbar ist (mittig auf dem
+// Gesicht) und nicht erst im Masken-Editor kalibriert werden muss, um
+// überhaupt etwas anzuzeigen.
+const DEFAULT_MASK_CFG = { anchorX: 0.5, anchorY: 0.5, offsetX: 0, offsetY: -0.1, width: 1.3 };
 
 // Position/Größe pro Maske kommt aus einer Konfigurationsdatei statt fest
 // im Code — so kann der Masken-Editor Änderungen direkt speichern, ohne
@@ -50,6 +70,58 @@ async function loadMaskConfig() {
     maskConfig = {}; // Masken erscheinen dann einfach nicht, bricht nichts ab
   }
 }
+
+// -- Automatisch einen Button für jede neue Masken-PNG ergänzen -------------
+// Liest denselben Ordnerinhalt aus, den auch der Masken-Editor nutzt, und
+// legt für jede PNG, die noch keinen eigenen Button hat, automatisch einen
+// an — inkl. Klick-Logik. Fest eingebaute Buttons (santa/antlers/glasses/
+// halo) werden dabei übersprungen, damit es keine Duplikate gibt.
+function wireMaskButton(btn) {
+  btn.onclick = () => {
+    const mask = btn.dataset.mask;
+    if (mask === 'none') {
+      activeMasks.clear();
+      document.querySelectorAll('.mask-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      return;
+    }
+    document.querySelector('.mask-btn[data-mask="none"]').classList.remove('active');
+    if (activeMasks.has(mask)) {
+      activeMasks.delete(mask);
+      btn.classList.remove('active');
+    } else {
+      activeMasks.add(mask);
+      btn.classList.add('active');
+    }
+  };
+}
+
+(async function addAutoMaskButtons() {
+  try {
+    const res = await fetch('/list-masks.php?t=' + Date.now());
+    const names = await res.json();
+    const picker = document.querySelector('.mask-picker');
+    if (!Array.isArray(names) || !picker) return;
+
+    names.forEach((name) => {
+      if (document.querySelector(`.mask-btn[data-mask="${name}"]`)) return; // schon vorhanden
+
+      const btn = document.createElement('button');
+      btn.className = 'mask-btn';
+      btn.dataset.mask = name;
+      btn.title = name;
+
+      const img = document.createElement('img');
+      img.src = '/masks/' + name + '.png';
+      img.alt = name;
+      img.style.cssText = 'width:26px; height:26px; object-fit:contain; pointer-events:none;';
+      btn.appendChild(img);
+
+      picker.appendChild(btn);
+      wireMaskButton(btn);
+    });
+  } catch (e) { /* Liste nicht erreichbar -> nur die fest eingebauten Masken bleiben */ }
+})();
 
 async function ensureModelLoaded() {
   if (faceLandmarker || modelLoadFailed) return;
@@ -204,10 +276,12 @@ function mid(a, b) {
 function drawEffectsForFace(landmarks) {
   const box = faceBoundingBox(landmarks);
 
-  ['santa', 'antlers', 'glasses', 'halo'].forEach(name => {
-    if (activeMasks.has(name)) {
-      try { drawMask(name, box); } catch (e) { /* einzelne Bild-Maske überspringen */ }
-    }
+  // Jede aktive Maske, die keiner der handgezeichneten Effekte ist, gilt
+  // automatisch als Bild-Maske aus public/masks/ — funktioniert für jede
+  // neu hochgeladene PNG ohne Code-Änderung.
+  activeMasks.forEach((name) => {
+    if (HAND_DRAWN_EFFECTS.has(name)) return;
+    try { drawMask(name, box); } catch (e) { /* einzelne Bild-Maske überspringen */ }
   });
 
   const hasDrawnEffect = ['frame', 'nose', 'earrings', 'beard', 'question', 'exclaim']
@@ -479,37 +553,16 @@ function drawImageAnchored(img, anchorXFrac, anchorYFrac, targetX, targetY, targ
 }
 
 function drawMask(type, box) {
-  const cfg = maskConfig[type];
-  const img = maskImages[type];
-  if (!cfg || !img) return; // Maske ohne Eintrag in config.json -> einfach nichts zeichnen
+  const cfg = maskConfig[type] || DEFAULT_MASK_CFG;
+  const img = getMaskImage(type);
+  if (!img.complete || !img.naturalWidth) return; // Bild noch nicht geladen -> Frame überspringen
   const cx = box.x + box.w / 2 + cfg.offsetX * box.w;
   const targetY = box.y + cfg.offsetY * box.h;
   const targetWidth = box.w * cfg.width;
   drawImageAnchored(img, cfg.anchorX, cfg.anchorY, cx, targetY, targetWidth);
 }
 
-document.querySelectorAll('.mask-btn').forEach(btn => {
-  btn.onclick = () => {
-    const mask = btn.dataset.mask;
-
-    if (mask === 'none') {
-      // "Keine Maske" schaltet alle Effekte auf einmal aus.
-      activeMasks.clear();
-      document.querySelectorAll('.mask-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      return;
-    }
-
-    document.querySelector('.mask-btn[data-mask="none"]').classList.remove('active');
-    if (activeMasks.has(mask)) {
-      activeMasks.delete(mask);
-      btn.classList.remove('active');
-    } else {
-      activeMasks.add(mask);
-      btn.classList.add('active');
-    }
-  };
-});
+document.querySelectorAll('.mask-btn').forEach(wireMaskButton);
 
 document.getElementById('cameraSwitchBtn').onclick = async () => {
   const oldFacingMode = facingMode;
