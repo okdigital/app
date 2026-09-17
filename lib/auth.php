@@ -47,7 +47,20 @@ function verify_signed_url(int $photoId, int $expires, string $sig): bool {
     return hash_equals($expected, $sig);
 }
 
-/** Avatare sind unkritisch (kein Party-Foto) — einfacher Link reicht, kein Ablauf nötig */
+/** Avatare: eigener Signatur-Namensraum ("avatar:...") statt den der Fotos
+ *  mitzubenutzen, damit eine Foto-Signatur nicht versehentlich auch als
+ *  gültige Avatar-Signatur durchgehen würde. Kein Login-Header nötig (siehe
+ *  avatar-view.php) — das war der eigentliche Grund, warum Avatare bisher
+ *  gar nicht angezeigt wurden: normale <img>-Tags können keinen
+ *  Authorization-Header mitschicken. */
 function build_avatar_url(int $userId): string {
-    return "/avatar-view.php?user_id={$userId}";
+    $expires = time() + AVATAR_URL_TTL;
+    $sig = hash_hmac('sha256', 'avatar:' . $userId . ':' . $expires, SIGNING_SECRET);
+    return "/avatar-view.php?user_id={$userId}&exp={$expires}&sig={$sig}";
+}
+
+function verify_avatar_signed_url(int $userId, int $expires, string $sig): bool {
+    if (time() > $expires) return false;
+    $expected = hash_hmac('sha256', 'avatar:' . $userId . ':' . $expires, SIGNING_SECRET);
+    return hash_equals($expected, $sig);
 }

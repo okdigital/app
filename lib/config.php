@@ -17,5 +17,10 @@ define('SIGNING_SECRET', getenv('SIGNING_SECRET') ?: 'lokaler-test-schluessel-ni
 // Gültigkeitsdauer signierter Foto-URLs in Sekunden
 define('SIGNED_URL_TTL', 60);
 
+// Avatare sind unkritisch (kein Party-Foto) — lange Gültigkeit statt wie bei
+// Fotos nur 60 Sekunden, damit sie in <img>-Tags und Caches problemlos
+// funktionieren, ohne bei jedem Feed-Reload neu signiert werden zu müssen.
+define('AVATAR_URL_TTL', 60 * 60 * 24 * 365);
+
 // Gültigkeitsdauer eines Login-Tokens in Sekunden (hier kurz für den Test)
 define('SESSION_TTL', 3600);
