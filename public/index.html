@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/app.css?v=1.10.0">
+<link rel="stylesheet" href="/css/app.css?v=1.11.0">
 </head>
 <body>
 <div class="shell">
@@ -85,9 +85,12 @@
       </div>
 
       <a id="adminMaskEditorLink" href="/mask-editor.html" target="_blank" rel="noopener"
-         class="panel-note hidden" style="display:block; text-align:center; text-decoration:underline; cursor:pointer; margin:16px 0 24px;">
+         class="panel-note hidden" style="display:block; text-align:center; text-decoration:underline; cursor:pointer; margin:16px 0 8px;">
         🔧 Masken-Editor öffnen (Admin)
       </a>
+      <button id="adminReloadAllBtn" class="btn btn-quiet hidden" style="display:block; width:100%; margin:0 0 24px;">
+        🔄 App bei allen neu laden (Admin)
+      </button>
 
       <div class="panel">
         <h3 id="infoGreeting">Hallo!</h3>
@@ -264,9 +267,9 @@
 </div>
 
 <script src="/js/qrcode.js"></script>
-<script src="/js/app.js?v=1.10.0"></script>
+<script src="/js/app.js?v=1.11.0"></script>
 
-<script type="module" src="/js/ar-camera.js?v=1.10.0"></script>
+<script type="module" src="/js/ar-camera.js?v=1.11.0"></script>
 
 <script>
   // Service Worker registrieren, damit die App-Hülle offline verfügbar

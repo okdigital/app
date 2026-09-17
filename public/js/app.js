@@ -3,7 +3,7 @@ let token = localStorage.getItem('wa_token') || null;
 
 // Bei jedem nennenswerten Deploy von Hand hochzählen — einziger Zweck: damit
 // man auf einen Blick sieht, ob das eigene Handy noch eine alte Version zeigt.
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 document.getElementById('appVersion').textContent = APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = () => {
@@ -102,6 +102,37 @@ window.addEventListener('online', flushQueue);
 setInterval(flushQueue, 20000); // alle 20 Sekunden automatisch nachschauen
 // ----------------------------------------------------------------------
 
+// -- Globaler "App bei allen neu laden"-Reload (Admin) ----------------------
+// Kein Push/WebSocket nötig: jede App merkt sich beim eigenen Start den
+// aktuellen Auslöse-Zeitstempel und prüft ihn periodisch nach. Ändert er
+// sich, hat ein Admin gerade den Reload ausgelöst -> Seite neu laden.
+// Bewusst ohne Login-Pflicht abgefragt (siehe check-reload.php), damit es
+// auch bei bereits abgelaufener Sitzung funktioniert.
+let reloadTriggerBaseline = null;
+async function checkGlobalReload() {
+  try {
+    const res = await fetch('/check-reload.php?t=' + Date.now());
+    const data = await res.json();
+    if (reloadTriggerBaseline === null) {
+      reloadTriggerBaseline = data.trigger;
+      return;
+    }
+    if (data.trigger !== reloadTriggerBaseline) {
+      location.reload();
+    }
+  } catch (e) { /* offline oder Fehler - beim naechsten Versuch erneut pruefen */ }
+}
+checkGlobalReload();
+setInterval(checkGlobalReload, 20000);
+
+document.getElementById('adminReloadAllBtn').onclick = async () => {
+  if (!confirm('App wirklich bei allen gerade geöffneten Geräten neu laden?')) return;
+  try {
+    await api('/trigger-reload.php', null, true, 'POST');
+    showMsg('Reload ausgelöst — alle Apps laden sich innerhalb von ~20 Sekunden neu.', 'ok');
+  } catch (e) { showMsg(e.message, 'error'); }
+};
+
 let msgTimeout = null;
 
 function showMsg(text, type = 'ok') {
@@ -150,6 +181,7 @@ function applyProfile(profile) {
     window.myUsername = profile.username;
     isAdmin = !!profile.is_admin;
     document.getElementById('adminMaskEditorLink').classList.toggle('hidden', !isAdmin);
+    document.getElementById('adminReloadAllBtn').classList.toggle('hidden', !isAdmin);
     const displayName = profile.username || 'Lieblingsmensch';
     document.getElementById('infoGreeting').textContent = `Hallo, ${displayName}!`;
     setView('info');
