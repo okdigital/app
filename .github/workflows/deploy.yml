@@ -35,3 +35,14 @@ jobs:
             --exclude 'test-flow.ps1' \
             --exclude 'debug-totp.php' \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+      # rsync bringt bei jedem Deploy die Datei-Rechte vom GitHub-Runner mit
+      # (i.d.R. kein Gruppen-Schreibzugriff für www-data) und setzt damit die
+      # manuell gesetzten Rechte auf public/masks/ immer wieder zurück.
+      # Deshalb hier automatisch nach jedem Deploy wiederherstellen, damit
+      # der Masken-Editor dauerhaft speichern kann, ohne dass das nach jedem
+      # Push erneut von Hand gemacht werden muss.
+      - name: Schreibrechte für Masken-Editor sichern
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "sudo chgrp -R www-data ${{ secrets.DEPLOY_PATH }}/public/masks && sudo chmod -R 775 ${{ secrets.DEPLOY_PATH }}/public/masks"
