@@ -115,6 +115,7 @@
     <h3>Speichern</h3>
     <button class="btn btn-primary" id="saveBtn">💾 Direkt speichern (live, kein Deploy nötig)</button>
     <button class="btn btn-quiet" id="switchCameraBtn">🔄 Kamera wechseln</button>
+    <button class="btn btn-quiet" id="deleteMaskBtn" style="color:var(--pink-deep); border-color:var(--pink-deep);">🗑️ Diese Maske löschen</button>
     <p class="hint" id="saveHint">
       Speichert sofort in <code>public/masks/config.json</code> auf dem Server — wirkt beim
       nächsten Öffnen der Kamera in der echten App, ganz ohne Deploy. Erfordert Admin-Rechte
@@ -244,6 +245,34 @@ document.getElementById('saveBtn').onclick = async () => {
     hint.style.color = 'var(--pink)';
   } catch (e) {
     hint.textContent = 'Fehler beim Speichern: ' + e.message;
+    hint.style.color = 'var(--pink-deep)';
+  }
+};
+
+document.getElementById('deleteMaskBtn').onclick = async () => {
+  const token = localStorage.getItem('wa_token');
+  const hint = document.getElementById('saveHint');
+  if (!token) {
+    hint.textContent = 'Kein Login gefunden — öffne die echte App in diesem Browser, melde dich als Admin an, und komm dann hierher zurück.';
+    hint.style.color = 'var(--pink-deep)';
+    return;
+  }
+  if (!confirm(`"${currentName}.png" wirklich unwiderruflich vom Server löschen? Das kann nicht rückgängig gemacht werden.`)) {
+    return;
+  }
+  try {
+    const res = await fetch('/delete-mask.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ name: currentName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unbekannter Fehler');
+    hint.textContent = `✓ "${currentName}.png" gelöscht.`;
+    hint.style.color = 'var(--pink)';
+    await populateMaskList();
+  } catch (e) {
+    hint.textContent = 'Fehler beim Löschen: ' + e.message;
     hint.style.color = 'var(--pink-deep)';
   }
 };
